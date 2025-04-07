@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Estoque</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    input, button { padding: 8px; margin: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    .entrada { color: green; }
+    .saida { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Controle de Estoque</h1>
+
+  <div>
+    <input type="text" id="usuario" placeholder="Nome do Usuário">
+    <input type="text" id="produto" placeholder="Produto">
+    <input type="number" id="quantidade" placeholder="Quantidade">
+    <select id="tipo">
+      <option value="entrada">Entrada</option>
+      <option value="saida">Saída</option>
+    </select>
+    <button onclick="registrarMovimentacao(true)">Registrar</button>
+  </div>
+
+  <h3>Saldo Atual: <span id="saldoTotal">0</span></h3>
+
+  <h2>Pesquisar Movimentações</h2>
+  <input type="text" id="pesquisaProduto" placeholder="Digite o nome do produto">
+  <button onclick="pesquisarMovimentacoes()">Pesquisar</button>
+  <h4 id="saldoProduto"></h4>
+  <h4 id="saldoTotalFiltrado"></h4>
+
+  <table id="historico">
+    <thead>
+      <tr>
+        <th>Usuário</th>
+        <th>Produto</th>
+        <th>Tipo</th>
+        <th>Quantidade</th>
+        <th>Data</th>
+        <th>Saldo Após</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Resumo do Estoque</h2>
+  <table id="resumoEstoque">
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Quantidade Total</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let saldo = 0;
+    let historico = [];
+    let estoque = {};
+
+    const sheetdbURL = "https://sheetdb.io/api/v1/6b5v0coy721oa";
+
+    function salvarDados() {
+      localStorage.setItem('estoqueHistorico', JSON.stringify(historico));
+      localStorage.setItem('estoqueSaldo', saldo);
+      localStorage.setItem('estoqueResumo', JSON.stringify(estoque));
+    }
+
+    function carregarDados() {
+      fetch(sheetdbURL)
+        .then(res => res.json())
+        .then(data => {
+          historico = data;
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+          salvarDados();
+        })
+        .catch(err => console.error("Erro ao carregar dados do SheetDB:", err));
+    }
+
+    function gerarIdSimples() {
+      return Math.floor(Math.random() * 100000).toString();
+    }
+
+    function registrarMovimentacao(atualizar = false) {
+      const usuario = document.getElementById('usuario').value.trim();
+      const produto = document.getElementById('produto').value.trim();
+      const quantidade = parseInt(document.getElementById('quantidade').value);
+      const tipo = document.getElementById('tipo').value;
+
+      if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
+        alert("Preencha todos os campos corretamente.");
+        return;
+      }
+
+      if (!estoque[produto]) {
+        estoque[produto] = 0;
+      }
+
+      const dataAtual = new Date();
+      const dataFormatada = dataAtual.toLocaleDateString('pt-BR') + ' ' + dataAtual.toLocaleTimeString('pt-BR');
+
+      const novoRegistro = {
+        id: gerarIdSimples(),
+        usuario,
+        produto,
+        tipo,
+        quantidade,
+        data: dataFormatada
+      };
+
+      if (atualizar) {
+        fetch(sheetdbURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: [novoRegistro] })
+        })
+        .then(res => res.json())
+        .then(() => {
+          historico.push(novoRegistro);
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+          salvarDados();
+          limparCampos();
+        })
+        .catch(err => {
+          alert("Erro ao salvar na planilha");
+          console.error("Erro:", err);
+        });
+      } else {
+        historico.push(novoRegistro);
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+        salvarDados();
+        limparCampos();
+      }
+    }
+
+    function recalcularSaldos() {
+      saldo = 0;
+      estoque = {};
+
+      historico.forEach(item => {
+        const produto = item.produto;
+        const quantidade = parseInt(item.quantidade);
+        const tipo = item.tipo;
+
+        if (!estoque[produto]) {
+          estoque[produto] = 0;
+        }
+
+        if (tipo === 'entrada') {
+          saldo += quantidade;
+          estoque[produto] += quantidade;
+        } else {
+          saldo -= quantidade;
+          estoque[produto] -= quantidade;
+        }
+
+        item.saldoApos = estoque[produto];
+      });
+
+      document.getElementById('saldoTotal').textContent = saldo;
+    }
+
+    function atualizarHistorico(filtroProduto = "") {
+      const tbody = document.querySelector("#historico tbody");
+      tbody.innerHTML = "";
+
+      historico.forEach((item, index) => {
+        if (!filtroProduto || item.produto.toLowerCase() === filtroProduto.toLowerCase()) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${item.usuario}</td>
+            <td>${item.produto}</td>
+            <td class="${item.tipo}">${item.tipo}</td>
+            <td>${item.quantidade}</td>
+            <td>${item.data}</td>
+            <td>${item.saldoApos}</td>
+            <td><button onclick="confirmarExclusao('${item.id}', ${index}, '${item.produto}')">Deletar</button></td>
+          `;
+          tbody.appendChild(tr);
+        }
+      });
+    }
+
+    function confirmarExclusao(id, index, filtroProduto = "") {
+      if (confirm("Deseja realmente deletar este registro?")) {
+        deletarRegistro(id, index, filtroProduto);
+      }
+    }
+
+    function deletarRegistro(id, index, filtroProduto = "") {
+      if (!id) {
+        alert("Este item não possui um ID e não pode ser deletado automaticamente.");
+        return;
+      }
+
+      fetch(`${sheetdbURL}/id/${id}`, { method: "DELETE" })
+        .then(() => {
+          historico.splice(index, 1);
+          recalcularSaldos();
+          atualizarHistorico(filtroProduto);
+          atualizarResumoEstoque();
+          salvarDados();
+          alert("Registro excluído com sucesso!");
+        })
+        .catch(error => {
+          console.error("Erro ao deletar do SheetDB:", error);
+          alert("Erro ao deletar da planilha");
+        });
+    }
+
+    function atualizarResumoEstoque() {
+      const tbody = document.querySelector("#resumoEstoque tbody");
+      tbody.innerHTML = "";
+
+      for (let produto in estoque) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${produto}</td><td>${estoque[produto]}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function pesquisarMovimentacoes() {
+      const produtoPesquisa = document.getElementById('pesquisaProduto').value.trim();
+      if (!produtoPesquisa) {
+        document.getElementById("saldoProduto").textContent = "";
+        document.getElementById("saldoTotalFiltrado").textContent = "";
+        return atualizarHistorico();
+      }
+
+      const historicoFiltrado = historico.filter(item => item.produto.toLowerCase() === produtoPesquisa.toLowerCase());
+      atualizarHistorico(produtoPesquisa);
+
+      let ultimoSaldo = "N/A";
+      let totalSaldo = 0;
+
+      if (historicoFiltrado.length > 0) {
+        ultimoSaldo = historicoFiltrado[historicoFiltrado.length - 1].saldoApos;
+        historicoFiltrado.forEach(item => {
+          const quantidade = parseInt(item.quantidade);
+          totalSaldo += item.tipo === 'entrada' ? quantidade : -quantidade;
+        });
+      }
+
+      document.getElementById("saldoProduto").textContent = `Saldo do produto "${produtoPesquisa}": ${ultimoSaldo}`;
+      document.getElementById("saldoTotalFiltrado").textContent = `Saldo total movimentado do produto "${produtoPesquisa}": ${totalSaldo}`;
+    }
+
+    function limparCampos() {
+      document.getElementById('usuario').value = "";
+      document.getElementById('produto').value = "";
+      document.getElementById('quantidade').value = "";
+      document.getElementById('tipo').value = "entrada";
+    }
+
+    window.onload = () => {
+      carregarDados();
+      setInterval(carregarDados, 5000);
+    };
+  </script>
+</body>
+</html>
