@@ -67,7 +67,11 @@
     let historico = [];
     let estoque = {};
 
-    const sheetdbURL = "https://sheetdb.io/api/v1/6b5v0coy721oa";
+    const sheetsonURL = "https://api.sheetson.com/v2/sheets/estoque";
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer g9-OQ40Z3YARwsvaFPMW0CN-16N8r814wfi9wLX127FJsRDMblCU_DDsnS4"
+    };
 
     function salvarDados() {
       localStorage.setItem('estoqueHistorico', JSON.stringify(historico));
@@ -76,16 +80,16 @@
     }
 
     function carregarDados() {
-      fetch(sheetdbURL)
+      fetch(sheetsonURL, { headers })
         .then(res => res.json())
         .then(data => {
-          historico = data;
+          historico = data.results || [];
           recalcularSaldos();
           atualizarHistorico();
           atualizarResumoEstoque();
           salvarDados();
         })
-        .catch(err => console.error("Erro ao carregar dados do SheetDB:", err));
+        .catch(err => console.error("Erro ao carregar dados do Sheetson:", err));
     }
 
     function gerarIdSimples() {
@@ -120,10 +124,10 @@
       };
 
       if (atualizar) {
-        fetch(sheetdbURL, {
+        fetch(sheetsonURL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: [novoRegistro] })
+          headers,
+          body: JSON.stringify(novoRegistro)
         })
         .then(res => res.json())
         .then(() => {
@@ -189,38 +193,11 @@
             <td>${item.quantidade}</td>
             <td>${item.data}</td>
             <td>${item.saldoApos}</td>
-            <td><button onclick="confirmarExclusao('${item.id}', ${index}, '${item.produto}')">Deletar</button></td>
+            <td><button onclick="alert('Exclusão não suportada no Sheetson')">Deletar</button></td>
           `;
           tbody.appendChild(tr);
         }
       });
-    }
-
-    function confirmarExclusao(id, index, filtroProduto = "") {
-      if (confirm("Deseja realmente deletar este registro?")) {
-        deletarRegistro(id, index, filtroProduto);
-      }
-    }
-
-    function deletarRegistro(id, index, filtroProduto = "") {
-      if (!id) {
-        alert("Este item não possui um ID e não pode ser deletado automaticamente.");
-        return;
-      }
-
-      fetch(`${sheetdbURL}/id/${id}`, { method: "DELETE" })
-        .then(() => {
-          historico.splice(index, 1);
-          recalcularSaldos();
-          atualizarHistorico(filtroProduto);
-          atualizarResumoEstoque();
-          salvarDados();
-          alert("Registro excluído com sucesso!");
-        })
-        .catch(error => {
-          console.error("Erro ao deletar do SheetDB:", error);
-          alert("Erro ao deletar da planilha");
-        });
     }
 
     function atualizarResumoEstoque() {
@@ -274,9 +251,3 @@
   </script>
 </body>
 </html>
-
-
-
-   
-   
- 
