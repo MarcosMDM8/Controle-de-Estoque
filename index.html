@@ -1,181 +1,253 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Controle de Estoque</title>
   <style>
-    :root {
-      --cor-primaria: #0f4c81;
-      --cor-secundaria: #d9e2ec;
-      --cor-texto: #333;
-      --cor-entrada: #28a745;
-      --cor-saida: #dc3545;
-      --cor-fundo: #f4f6f8;
-      --cor-borda: #ccc;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--cor-fundo);
-      color: var(--cor-texto);
-      margin: 0;
-      padding: 20px;
-    }
-
-    h1, h2, h3, h4 {
-      color: var(--cor-primaria);
-      text-align: center;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    input, select, button {
-      padding: 10px;
-      margin: 5px;
-      border: 1px solid var(--cor-borda);
-      border-radius: 6px;
-      font-size: 14px;
-    }
-
-    button {
-      background-color: var(--cor-primaria);
-      color: white;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    button:hover {
-      background-color: #0d3b66;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-      background-color: white;
-    }
-
-    th, td {
-      padding: 10px;
-      border: 1px solid var(--cor-borda);
-      text-align: center;
-    }
-
-    th {
-      background-color: var(--cor-secundaria);
-      font-weight: bold;
-    }
-
-    .entrada {
-      color: var(--cor-entrada);
-      font-weight: bold;
-    }
-
-    .saida {
-      color: var(--cor-saida);
-      font-weight: bold;
-    }
-
-    .form-grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .form-grid input, .form-grid select {
-      min-width: 200px;
-      flex-grow: 1;
-    }
-
-    .form-grid button {
-      min-width: 150px;
-    }
-
-    .section {
-      margin-top: 30px;
-    }
-
-    .resumo {
-      margin-top: 10px;
-      font-weight: bold;
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    input, button { padding: 8px; margin: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    .entrada { color: green; }
+    .saida { color: red; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Controle de Estoque</h1>
+  <h1>Controle de Estoque</h1>
 
-    <div class="form-grid">
-      <input type="text" id="usuario" placeholder="Nome do Usuário" />
-      <input type="text" id="produto" placeholder="Produto" />
-      <input type="number" id="quantidade" placeholder="Quantidade" />
-      <select id="tipo">
-        <option value="entrada">Entrada</option>
-        <option value="saida">Saída</option>
-      </select>
-      <button onclick="registrarMovimentacao(true)">Registrar</button>
-    </div>
-
-    <h3>Saldo Geral em Estoque: <span id="saldoTotal">0</span></h3>
-
-    <div class="section">
-      <h2>Pesquisar Movimentações</h2>
-      <div class="form-grid">
-        <input type="text" id="pesquisaProduto" placeholder="Digite o nome do produto" />
-        <button onclick="pesquisarMovimentacoes()">Pesquisar</button>
-      </div>
-      <div class="resumo">
-        <h4 id="saldoProduto"></h4>
-        <h4 id="saldoTotalFiltrado"></h4>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>Histórico de Movimentações</h2>
-      <table id="historico">
-        <thead>
-          <tr>
-            <th>Usuário</th>
-            <th>Produto</th>
-            <th>Tipo</th>
-            <th>Quantidade</th>
-            <th>Data</th>
-            <th>Saldo Após</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <h2>Resumo do Estoque</h2>
-      <table id="resumoEstoque">
-        <thead>
-          <tr>
-            <th>Produto</th>
-            <th>Quantidade Total</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+  <div>
+    <input type="text" id="usuario" placeholder="Nome do Usuário">
+    <input type="text" id="produto" placeholder="Produto">
+    <input type="number" id="quantidade" placeholder="Quantidade">
+    <select id="tipo">
+      <option value="entrada">Entrada</option>
+      <option value="saida">Saída</option>
+    </select>
+    <button onclick="registrarMovimentacao(true)">Registrar</button>
   </div>
 
-  <!-- O script original permanece o mesmo, apenas colado abaixo -->
+  <h3>Saldo Atual: <span id="saldoTotal">0</span></h3>
+
+  <h2>Pesquisar Movimentações</h2>
+  <input type="text" id="pesquisaProduto" placeholder="Digite o nome do produto">
+  <button onclick="pesquisarMovimentacoes()">Pesquisar</button>
+  <h4 id="saldoProduto"></h4>
+  <h4 id="saldoTotalFiltrado"></h4>
+
+  <table id="historico">
+    <thead>
+      <tr>
+        <th>Usuário</th>
+        <th>Produto</th>
+        <th>Tipo</th>
+        <th>Quantidade</th>
+        <th>Data</th>
+        <th>Saldo Após</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Resumo do Estoque</h2>
+  <table id="resumoEstoque">
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Quantidade Total</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <script>
-    // ... seu script JS está todo certo, mantenha o que você me mandou aqui
-    // Pode colar o script inteiro a partir da função let saldo = 0...
+    let saldo = 0;
+    let historico = [];
+    let estoque = {};
+
+    const sheetsonURL = "https://api.sheetson.com/v2/sheets/estoque";
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer g9-OQ40Z3YARwsvaFPMW0CN-16N8r814wfi9wLX127FJsRDMblCU_DDsnS4"
+    };
+
+    function salvarDados() {
+      localStorage.setItem('estoqueHistorico', JSON.stringify(historico));
+      localStorage.setItem('estoqueSaldo', saldo);
+      localStorage.setItem('estoqueResumo', JSON.stringify(estoque));
+    }
+
+    function carregarDados() {
+      fetch(sheetsonURL, { headers })
+        .then(res => res.json())
+        .then(data => {
+          historico = data.results || [];
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+          salvarDados();
+        })
+        .catch(err => console.error("Erro ao carregar dados do Sheetson:", err));
+    }
+
+    function gerarIdSimples() {
+      return Math.floor(Math.random() * 100000).toString();
+    }
+
+    function registrarMovimentacao(atualizar = false) {
+      const usuario = document.getElementById('usuario').value.trim();
+      const produto = document.getElementById('produto').value.trim();
+      const quantidade = parseInt(document.getElementById('quantidade').value);
+      const tipo = document.getElementById('tipo').value;
+
+      if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
+        alert("Preencha todos os campos corretamente.");
+        return;
+      }
+
+      if (!estoque[produto]) {
+        estoque[produto] = 0;
+      }
+
+      const dataAtual = new Date();
+      const dataFormatada = dataAtual.toLocaleDateString('pt-BR') + ' ' + dataAtual.toLocaleTimeString('pt-BR');
+
+      const novoRegistro = {
+        id: gerarIdSimples(),
+        usuario,
+        produto,
+        tipo,
+        quantidade,
+        data: dataFormatada
+      };
+
+      if (atualizar) {
+        fetch(sheetsonURL, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(novoRegistro)
+        })
+        .then(res => res.json())
+        .then(() => {
+          historico.push(novoRegistro);
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+          salvarDados();
+          limparCampos();
+        })
+        .catch(err => {
+          alert("Erro ao salvar na planilha");
+          console.error("Erro:", err);
+        });
+      } else {
+        historico.push(novoRegistro);
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+        salvarDados();
+        limparCampos();
+      }
+    }
+
+    function recalcularSaldos() {
+      saldo = 0;
+      estoque = {};
+
+      historico.forEach(item => {
+        const produto = item.produto;
+        const quantidade = parseInt(item.quantidade);
+        const tipo = item.tipo;
+
+        if (!estoque[produto]) {
+          estoque[produto] = 0;
+        }
+
+        if (tipo === 'entrada') {
+          saldo += quantidade;
+          estoque[produto] += quantidade;
+        } else {
+          saldo -= quantidade;
+          estoque[produto] -= quantidade;
+        }
+
+        item.saldoApos = estoque[produto];
+      });
+
+      document.getElementById('saldoTotal').textContent = saldo;
+    }
+
+    function atualizarHistorico(filtroProduto = "") {
+      const tbody = document.querySelector("#historico tbody");
+      tbody.innerHTML = "";
+
+      historico.forEach((item, index) => {
+        if (!filtroProduto || item.produto.toLowerCase() === filtroProduto.toLowerCase()) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${item.usuario}</td>
+            <td>${item.produto}</td>
+            <td class="${item.tipo}">${item.tipo}</td>
+            <td>${item.quantidade}</td>
+            <td>${item.data}</td>
+            <td>${item.saldoApos}</td>
+            <td><button onclick="alert('Exclusão não suportada no Sheetson')">Deletar</button></td>
+          `;
+          tbody.appendChild(tr);
+        }
+      });
+    }
+
+    function atualizarResumoEstoque() {
+      const tbody = document.querySelector("#resumoEstoque tbody");
+      tbody.innerHTML = "";
+
+      for (let produto in estoque) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${produto}</td><td>${estoque[produto]}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function pesquisarMovimentacoes() {
+      const produtoPesquisa = document.getElementById('pesquisaProduto').value.trim();
+      if (!produtoPesquisa) {
+        document.getElementById("saldoProduto").textContent = "";
+        document.getElementById("saldoTotalFiltrado").textContent = "";
+        return atualizarHistorico();
+      }
+
+      const historicoFiltrado = historico.filter(item => item.produto.toLowerCase() === produtoPesquisa.toLowerCase());
+      atualizarHistorico(produtoPesquisa);
+
+      let ultimoSaldo = "N/A";
+      let totalSaldo = 0;
+
+      if (historicoFiltrado.length > 0) {
+        ultimoSaldo = historicoFiltrado[historicoFiltrado.length - 1].saldoApos;
+        historicoFiltrado.forEach(item => {
+          const quantidade = parseInt(item.quantidade);
+          totalSaldo += item.tipo === 'entrada' ? quantidade : -quantidade;
+        });
+      }
+
+      document.getElementById("saldoProduto").textContent = `Saldo do produto "${produtoPesquisa}": ${ultimoSaldo}`;
+      document.getElementById("saldoTotalFiltrado").textContent = `Saldo total movimentado do produto "${produtoPesquisa}": ${totalSaldo}`;
+    }
+
+    function limparCampos() {
+      document.getElementById('usuario').value = "";
+      document.getElementById('produto').value = "";
+      document.getElementById('quantidade').value = "";
+      document.getElementById('tipo').value = "entrada";
+    }
+
+    window.onload = () => {
+      carregarDados();
+      setInterval(carregarDados, 5000);
+    };
   </script>
 </body>
 </html>
