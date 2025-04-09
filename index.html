@@ -75,7 +75,8 @@
   </div>
 
   <script>
-    const apiBase = "https://v1.nocodeapi.com/tecnico/google_sheets/IXhHEyqFQ-EkdhQgKcCoJX9WVl_tbp3CSr8-iReAE-q3fPb-dpbbvgSkaaM";
+    const apiBase = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
+    const apiToken = "SEU_TOKEN_AQUI"; // <-- substitua aqui pelo seu token real
     let historico = [];
     let estoque = {};
     let saldo = 0;
@@ -85,23 +86,28 @@
     }
 
     function carregarDados() {
-      fetch(`${apiBase}?tabId=Estoque`)
-        .then(res => res.json())
-        .then(data => {
-          historico = data.slice(1).map(row => ({
-            id: row[0],
-            usuario: row[1],
-            produto: row[2],
-            tipo: row[3],
-            quantidade: parseInt(row[4]),
-            data: row[5],
-            saldoApos: parseInt(row[6])
-          }));
-          recalcularSaldos();
-          atualizarHistorico();
-          atualizarResumoEstoque();
-        })
-        .catch(err => console.error("Erro ao carregar dados:", err));
+      fetch(`${apiBase}?offset=0&limit=100`, {
+        headers: {
+          "xc-token": apiToken
+        }
+      })
+      .then(res => res.json())
+      .then(json => {
+        const data = json.list || [];
+        historico = data.map(row => ({
+          id: row.Id,
+          usuario: row.Usuario,
+          produto: row.Produto,
+          tipo: row.Tipo,
+          quantidade: parseInt(row.Quantidade),
+          data: row.Data,
+          saldoApos: parseInt(row.SaldoApos)
+        }));
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      })
+      .catch(err => console.error("Erro ao carregar dados:", err));
     }
 
     function registrarMovimentacao(salvarNaApi = false) {
@@ -119,15 +125,24 @@
       const id = gerarId();
       const novoRegistro = { id, usuario, produto, tipo, quantidade, data };
 
-      // Calcular saldo após
       if (!estoque[produto]) estoque[produto] = 0;
       novoRegistro.saldoApos = tipo === "entrada" ? estoque[produto] + quantidade : estoque[produto] - quantidade;
 
       if (salvarNaApi) {
-        fetch(`${apiBase}?tabId=Estoque`, {
+        fetch(apiBase, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify([[id, usuario, produto, tipo, quantidade, data, novoRegistro.saldoApos]])
+          headers: {
+            "Content-Type": "application/json",
+            "xc-token": apiToken
+          },
+          body: JSON.stringify({
+            Usuario: usuario,
+            Produto: produto,
+            Tipo: tipo,
+            Quantidade: quantidade,
+            Data: data,
+            SaldoApos: novoRegistro.saldoApos
+          })
         })
         .then(() => {
           historico.push(novoRegistro);
@@ -156,7 +171,7 @@
       const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
       historico.forEach((item, index) => {
-        if (!filtro || item.produto.toLowerCase() === filtro.toLowerCase()) {
+        if (!filtro || item.produto.toLowerCase().includes(filtro.toLowerCase())) {
           const row = `
             <tr>
               <td class="p-2">${item.usuario}</td>
@@ -193,14 +208,19 @@
 
     function deletarRegistro(id, index) {
       if (!confirm("Deseja excluir esse registro?")) return;
-      fetch(`${apiBase}?tabId=Estoque&id=${id}`, { method: "DELETE" })
-        .then(() => {
-          historico.splice(index, 1);
-          recalcularSaldos();
-          atualizarHistorico();
-          atualizarResumoEstoque();
-        })
-        .catch(() => alert("Erro ao excluir"));
+      fetch(`${apiBase}/${id}`, {
+        method: "DELETE",
+        headers: {
+          "xc-token": apiToken
+        }
+      })
+      .then(() => {
+        historico.splice(index, 1);
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      })
+      .catch(() => alert("Erro ao excluir"));
     }
 
     function limparCampos() {
