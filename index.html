@@ -70,9 +70,7 @@
   </div>
 
   <script>
-    const sheetId = "mnbcbbwqe1ywksz"; // Seu código NocodeAPI
-    const apiBase = `https://v1.nocodeapi.com/tecnico/google_sheets/${sheetId}?tabId=Estoque`;
-
+    const apiBase = "https://v1.nocodeapi.com/tecnico/google_sheets/mnbcbbwqe1ywksz"; // <- Troque se necessário
     let historico = [];
     let estoque = {};
     let saldo = 0;
@@ -81,6 +79,7 @@
       fetch(apiBase)
         .then(res => res.json())
         .then(json => {
+          console.log("Resposta da API:", json);
           if (!json.data || !Array.isArray(json.data)) {
             throw new Error("Resposta inválida da API");
           }
@@ -97,39 +96,18 @@
           atualizarHistorico();
           atualizarResumoEstoque();
         })
-        .catch(err => alert("Erro ao carregar dados: " + err.message));
+        .catch(err => {
+          console.error(err);
+          alert("Erro ao carregar dados: " + err.message);
+        });
     }
 
     function registrarMovimentacao() {
-      const usuario = document.getElementById('usuario').value.trim();
-      const produto = document.getElementById('produto').value.trim();
-      const quantidade = parseInt(document.getElementById('quantidade').value);
-      const tipo = document.getElementById('tipo').value;
-      if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
-        alert("Preencha todos os campos corretamente.");
-        return;
-      }
-      const data = new Date().toLocaleString('pt-BR');
-      const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novaLinha = [[usuario, produto, tipo, quantidade, data, saldoProduto]];
-
-      fetch(apiBase, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ values: novaLinha })
-      })
-      .then(() => {
-        carregarDados();
-        limparCampos();
-      })
-      .catch(() => alert("Erro ao registrar movimentação"));
+      alert("Essa função ainda não está implementada para escrita via NocodeAPI.");
     }
 
     function recalcularSaldos() {
-      estoque = {};
-      saldo = 0;
+      estoque = {}; saldo = 0;
       historico.forEach(item => {
         if (!estoque[item.produto]) estoque[item.produto] = 0;
         estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
@@ -142,7 +120,7 @@
     function atualizarHistorico(filtro = "") {
       const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
-      historico.forEach(item => {
+      historico.forEach((item) => {
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
@@ -173,13 +151,6 @@
     function pesquisarMovimentacoes() {
       const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
       atualizarHistorico(termo);
-    }
-
-    function limparCampos() {
-      document.getElementById('usuario').value = "";
-      document.getElementById('produto').value = "";
-      document.getElementById('quantidade').value = "";
-      document.getElementById('tipo').value = "entrada";
     }
 
     window.onload = carregarDados;
