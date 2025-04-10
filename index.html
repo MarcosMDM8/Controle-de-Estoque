@@ -72,7 +72,7 @@
 
   <script>
     const apiBase = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
-    const apiToken = "SEU_TOKEN_AQUI";
+    const apiToken = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
     let historico = [];
     let estoque = {};
     let saldo = 0;
@@ -89,12 +89,12 @@
       .then(json => {
         historico = (json.list || []).map(row => ({
           id: row.id,
-          usuario: row.usuario,
-          produto: row.produto,
-          tipo: row.tipo,
-          quantidade: parseInt(row.quantidade),
-          data: row.data,
-          saldoApos: parseInt(row.saldoApos)
+          usuario: row.Usuario,
+          produto: row.Produto,
+          tipo: row.Tipo,
+          quantidade: parseInt(row.Quantidade),
+          data: row.Data || new Date().toLocaleString('pt-BR'),
+          saldoApos: parseInt(row.SaldoApos) || 0
         }));
         recalcularSaldos();
         atualizarHistorico();
@@ -114,7 +114,14 @@
       }
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = { usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto };
+      const novo = {
+        Usuario: usuario,
+        Produto: produto,
+        Tipo: tipo,
+        Quantidade: quantidade,
+        Data: data,
+        SaldoApos: saldoProduto
+      };
 
       if (salvarNaApi) {
         fetch(apiBase, {
@@ -134,7 +141,8 @@
     }
 
     function recalcularSaldos() {
-      estoque = {}; saldo = 0;
+      estoque = {};
+      saldo = 0;
       historico.forEach(item => {
         if (!estoque[item.produto]) estoque[item.produto] = 0;
         estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
