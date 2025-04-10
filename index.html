@@ -71,14 +71,14 @@
   </div>
 
   <script>
-    const apiBase = "https://app.nocodb.com/api/v2/tables/mnbcbbwqe1ywksz/records?offset=0&limit=100&viewId=vw7yh7xgg8q9yc46";
+    const apiBase = "https://app.nocodb.com/api/v2/tables/mnbcbbwqe1ywksz/records";
     const apiToken = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
     let historico = [];
     let estoque = {};
     let saldo = 0;
 
     function carregarDados() {
-      fetch(apiBase, {
+      fetch(apiBase + "?limit=100", {
         headers: {
           "accept": "application/json",
           "xc-token": apiToken
@@ -91,12 +91,12 @@
         }
         historico = json.list.map(row => ({
           id: row.id,
-          usuario: row.Usuario,
-          produto: row.Produto,
-          tipo: row.Tipo,
-          quantidade: parseInt(row.Quantidade),
-          data: row.Data,
-          saldoApos: parseInt(row.SaldoApos)
+          usuario: row.fields.usuario,
+          produto: row.fields.produto,
+          tipo: row.fields.tipo,
+          quantidade: parseInt(row.fields.quantidade),
+          data: row.fields.data,
+          saldoApos: parseInt(row.fields.saldoApos)
         }));
         recalcularSaldos();
         atualizarHistorico();
@@ -120,16 +120,16 @@
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
       const novo = {
-        Usuario: usuario,
-        Produto: produto,
-        Tipo: tipo,
-        Quantidade: quantidade,
-        Data: data,
-        SaldoApos: saldoProduto
+        usuario,
+        produto,
+        tipo,
+        quantidade,
+        data,
+        saldoApos: saldoProduto
       };
 
       if (salvarNaApi) {
-        fetch("https://app.nocodb.com/api/v2/tables/mnbcbbwqe1ywksz/records", {
+        fetch(apiBase, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -159,7 +159,7 @@
     function atualizarHistorico(filtro = "") {
       const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
-      historico.forEach(item => {
+      historico.forEach((item, index) => {
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
@@ -171,7 +171,7 @@
               <td class="p-3">${item.data}</td>
               <td class="p-3">${item.saldoApos}</td>
               <td class="p-3">
-                <button onclick="deletarRegistro('${item.id}')" class="text-red-500 hover:underline">Excluir</button>
+                <button onclick="deletarRegistro('${item.id}', ${index})" class="text-red-500 hover:underline">Excluir</button>
               </td>
             </tr>`;
         }
@@ -195,14 +195,17 @@
       atualizarHistorico(termo);
     }
 
-    function deletarRegistro(id) {
+    function deletarRegistro(id, index) {
       if (!confirm("Deseja excluir este registro?")) return;
-      fetch(`https://app.nocodb.com/api/v2/tables/mnbcbbwqe1ywksz/records/${id}`, {
+      fetch(`${apiBase}/${id}`, {
         method: "DELETE",
         headers: { "xc-token": apiToken }
       })
       .then(() => {
-        carregarDados();
+        historico.splice(index, 1);
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
       })
       .catch(() => alert("Erro ao excluir"));
     }
