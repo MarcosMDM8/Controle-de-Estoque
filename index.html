@@ -1,43 +1,56 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Controle de Estoque</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f3f4f6; padding: 2rem; }
-    h1 { color: #4f46e5; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5ff;
+      padding: 20px;
+    }
+    h1 {
+      color: #4a00e0;
+    }
     input, select, button {
-      padding: 0.5rem;
-      margin: 0.5rem;
-      border-radius: 8px;
+      margin: 5px;
+      padding: 8px;
+      border-radius: 5px;
       border: 1px solid #ccc;
     }
-    button { background: #4f46e5; color: white; cursor: pointer; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    th, td {
-      border: 1px solid #ddd; padding: 0.75rem; text-align: center;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
     }
-    th { background: #e0e7ff; }
-    .excluir { color: red; cursor: pointer; }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #e6e6ff;
+    }
+    .excluir {
+      color: red;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-
   <h1>📦 Controle de Estoque</h1>
 
   <div>
-    <input id="usuario" placeholder="Usuário" />
-    <input id="produto" placeholder="Produto" />
-    <input id="quantidade" type="number" placeholder="Quantidade" />
+    <input type="text" id="usuario" placeholder="Usuário">
+    <input type="text" id="produto" placeholder="Produto">
+    <input type="number" id="quantidade" placeholder="Quantidade">
     <select id="tipo">
       <option value="entrada">Entrada</option>
       <option value="saida">Saída</option>
     </select>
     <button onclick="registrar()">Registrar</button>
+    <strong>Saldo Atual: <span id="saldoAtual">0</span></strong>
   </div>
-
-  <p><strong>Saldo Atual:</strong> <span id="saldoAtual">0</span></p>
 
   <h2>📜 Histórico</h2>
   <table>
@@ -64,27 +77,29 @@
       const res = await fetch(API_URL, {
         headers: { "xc-token": TOKEN }
       });
-      const dados = await res.json();
-      const registros = dados.list || [];
+      const data = await res.json();
+      const registros = data.list || [];
+
+      let saldo = 0;
       const tbody = document.getElementById("historico");
       tbody.innerHTML = "";
 
-      let saldo = 0;
       registros.forEach((r) => {
-        const qtd = Number(r.quantidade) || 0;
-        if (r.tipo === "entrada") saldo += qtd;
-        else if (r.tipo === "saida") saldo -= qtd;
+        const f = r.fields;
+        const qtd = Number(f.quantidade) || 0;
+        if (f.tipo === "entrada") saldo += qtd;
+        else if (f.tipo === "saida") saldo -= qtd;
 
         tbody.innerHTML += `
           <tr>
             <td>${r.id}</td>
-            <td>${r.usuario}</td>
-            <td>${r.produto}</td>
-            <td>${r.tipo}</td>
-            <td>${r.quantidade}</td>
-            <td>${r.data}</td>
-            <td>${r.saldoApos}</td>
-            <td><span class="excluir" onclick="excluir(${r.id})">Excluir</span></td>
+            <td>${f.usuario}</td>
+            <td>${f.produto}</td>
+            <td>${f.tipo}</td>
+            <td>${f.quantidade}</td>
+            <td>${f.data}</td>
+            <td>${f.saldoApos}</td>
+            <td><span class="excluir" onclick="excluir('${r.id}')">Excluir</span></td>
           </tr>
         `;
       });
@@ -99,60 +114,57 @@
       const tipo = document.getElementById("tipo").value;
       const data = new Date().toLocaleString();
 
-      // Buscar histórico atual para calcular saldo
+      const saldoAtual = document.getElementById("saldoAtual").textContent;
+      const novoSaldo = tipo === "entrada"
+        ? Number(saldoAtual) + quantidade
+        : Number(saldoAtual) - quantidade;
+
       const res = await fetch(API_URL, {
-        headers: { "xc-token": TOKEN }
-      });
-      const dados = await res.json();
-      const historico = dados.list || [];
-
-      let saldo = 0;
-      historico.forEach((r) => {
-        const qtd = Number(r.quantidade) || 0;
-        if (r.tipo === "entrada") saldo += qtd;
-        else if (r.tipo === "saida") saldo -= qtd;
-      });
-
-      // Atualiza saldo com a nova operação
-      const novoSaldo = tipo === "entrada" ? saldo + quantidade : saldo - quantidade;
-
-      // Enviar novo registro
-      await fetch(API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "xc-token": TOKEN
         },
         body: JSON.stringify({
-          usuario,
-          produto,
-          tipo,
-          quantidade,
-          data,
-          saldoApos: novoSaldo
+          fields: {
+            usuario,
+            produto,
+            tipo,
+            quantidade,
+            data,
+            saldoApos: novoSaldo
+          }
         })
       });
 
-      // Limpar campos
-      document.getElementById("usuario").value = "";
-      document.getElementById("produto").value = "";
-      document.getElementById("quantidade").value = "";
-
-      carregarHistorico();
+      if (res.ok) {
+        await carregarHistorico();
+        document.getElementById("usuario").value = "";
+        document.getElementById("produto").value = "";
+        document.getElementById("quantidade").value = "";
+      } else {
+        alert("Erro ao registrar movimentação.");
+      }
     }
 
     async function excluir(id) {
-      if (!confirm("Tem certeza que deseja excluir?")) return;
-      await fetch(`${API_URL}/${id}`, {
+      if (!confirm("Deseja excluir este registro?")) return;
+
+      const res = await fetch(`${API_URL}/${id}`, {
         method: "DELETE",
-        headers: { "xc-token": TOKEN }
+        headers: {
+          "xc-token": TOKEN
+        }
       });
-      carregarHistorico();
+
+      if (res.ok) {
+        await carregarHistorico();
+      } else {
+        alert("Erro ao excluir.");
+      }
     }
 
-    // Carrega dados ao abrir
     carregarHistorico();
   </script>
-
 </body>
 </html>
