@@ -41,6 +41,7 @@
         <table class="min-w-full table-auto text-sm text-center bg-white shadow rounded-xl">
           <thead class="bg-indigo-100">
             <tr>
+              <th class="p-3">ID</th>
               <th class="p-3">Usuário</th>
               <th class="p-3">Produto</th>
               <th class="p-3">Tipo</th>
@@ -87,13 +88,13 @@
       .then(res => res.json())
       .then(json => {
         historico = (json.list || []).map(row => ({
-          id: row.Id,
-          usuario: row.Usuario,
-          produto: row.Produto,
-          tipo: row.Tipo,
-          quantidade: parseInt(row.Quantidade),
-          data: row.Data,
-          saldoApos: parseInt(row.SaldoApos)
+          id: row.id,
+          usuario: row.usuario,
+          produto: row.produto,
+          tipo: row.tipo,
+          quantidade: parseInt(row.quantidade),
+          data: row.data,
+          saldoApos: parseInt(row.saldoApos)
         }));
         recalcularSaldos();
         atualizarHistorico();
@@ -112,9 +113,8 @@
         return;
       }
       const data = new Date().toLocaleString('pt-BR');
-      const id = gerarId();
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = { id, usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto };
+      const novo = { usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto };
 
       if (salvarNaApi) {
         fetch(apiBase, {
@@ -123,20 +123,10 @@
             "Content-Type": "application/json",
             "xc-token": apiToken
           },
-          body: JSON.stringify({
-            Usuario: usuario,
-            Produto: produto,
-            Tipo: tipo,
-            Quantidade: quantidade,
-            Data: data,
-            SaldoApos: saldoProduto
-          })
+          body: JSON.stringify(novo)
         })
         .then(() => {
-          historico.push(novo);
-          recalcularSaldos();
-          atualizarHistorico();
-          atualizarResumoEstoque();
+          carregarDados();
           limparCampos();
         })
         .catch(() => alert("Erro ao registrar movimentação"));
@@ -161,6 +151,7 @@
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
+              <td class="p-3">${item.id}</td>
               <td class="p-3">${item.usuario}</td>
               <td class="p-3">${item.produto}</td>
               <td class="p-3 ${item.tipo}">${item.tipo}</td>
