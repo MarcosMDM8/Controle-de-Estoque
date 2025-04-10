@@ -71,35 +71,30 @@
   </div>
 
   <script>
-    const apiBase = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
-    const apiToken = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
+    const apiBase = "https://v1.nocodeapi.com/tecnico/google_sheets/mnbcbbwqe1ywksz";
+    const sheetName = "Estoque"; // Troque para o nome da aba da planilha, se for diferente
     let historico = [];
     let estoque = {};
     let saldo = 0;
 
     function carregarDados() {
-      fetch(apiBase + "?limit=100", {
-        headers: {
-          "accept": "application/json",
-          "xc-token": apiToken
-        }
-      })
-      .then(res => res.json())
-      .then(json => {
-        historico = json.list.map(row => ({
-          id: row.id,
-          usuario: row.Usuario,
-          produto: row.Produto,
-          tipo: row.Tipo,
-          quantidade: parseInt(row.Quantidade),
-          data: row.Data,
-          saldoApos: parseInt(row.SaldoApos)
-        }));
-        recalcularSaldos();
-        atualizarHistorico();
-        atualizarResumoEstoque();
-      })
-      .catch(err => alert("Erro ao carregar dados: " + err));
+      fetch(`${apiBase}?tabId=${sheetName}`)
+        .then(res => res.json())
+        .then(json => {
+          historico = json.slice(1).map((row, index) => ({
+            id: index + 1,
+            usuario: row[0],
+            produto: row[1],
+            tipo: row[2],
+            quantidade: parseInt(row[3]),
+            data: row[4],
+            saldoApos: parseInt(row[5])
+          }));
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+        })
+        .catch(err => alert("Erro ao carregar dados: " + err));
     }
 
     function registrarMovimentacao(salvarNaApi = false) {
@@ -113,23 +108,15 @@
       }
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = {
-        Usuario: usuario,
-        Produto: produto,
-        Tipo: tipo,
-        Quantidade: quantidade,
-        Data: data,
-        SaldoApos: saldoProduto
-      };
+      const novo = [usuario, produto, tipo, quantidade, data, saldoProduto];
 
       if (salvarNaApi) {
-        fetch(apiBase, {
+        fetch(`${apiBase}?tabId=${sheetName}`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            "xc-token": apiToken
+            "Content-Type": "application/json"
           },
-          body: JSON.stringify({ fields: novo })
+          body: JSON.stringify([novo])
         })
         .then(() => {
           carregarDados();
@@ -137,6 +124,21 @@
         })
         .catch(() => alert("Erro ao registrar movimentação"));
       }
+    }
+
+    function deletarRegistro(id, index) {
+      if (!confirm("Deseja excluir este registro?")) return;
+      const rowIndex = id + 1; // pular cabeçalho
+      fetch(`${apiBase}?tabId=${sheetName}&row=${rowIndex}`, {
+        method: "DELETE"
+      })
+      .then(() => {
+        historico.splice(index, 1);
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      })
+      .catch(() => alert("Erro ao excluir"));
     }
 
     function recalcularSaldos() {
@@ -165,7 +167,7 @@
               <td class="p-3">${item.data}</td>
               <td class="p-3">${item.saldoApos}</td>
               <td class="p-3">
-                <button onclick="deletarRegistro('${item.id}', ${index})" class="text-red-500 hover:underline">Excluir</button>
+                <button onclick="deletarRegistro(${item.id}, ${index})" class="text-red-500 hover:underline">Excluir</button>
               </td>
             </tr>`;
         }
@@ -187,21 +189,6 @@
     function pesquisarMovimentacoes() {
       const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
       atualizarHistorico(termo);
-    }
-
-    function deletarRegistro(id, index) {
-      if (!confirm("Deseja excluir este registro?")) return;
-      fetch(`${apiBase}/${id}`, {
-        method: "DELETE",
-        headers: { "xc-token": apiToken }
-      })
-      .then(() => {
-        historico.splice(index, 1);
-        recalcularSaldos();
-        atualizarHistorico();
-        atualizarResumoEstoque();
-      })
-      .catch(() => alert("Erro ao excluir"));
     }
 
     function limparCampos() {
