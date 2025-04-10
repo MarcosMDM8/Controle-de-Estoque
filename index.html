@@ -22,7 +22,7 @@
         <option value="entrada">Entrada</option>
         <option value="saida">Saída</option>
       </select>
-      <button onclick="registrarMovimentacao()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
+      <button onclick="registrarMovimentacao(true)" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
     </div>
 
     <div class="text-center text-xl font-semibold mb-8">Saldo Atual: <span id="saldoTotal" class="text-indigo-700">0</span></div>
@@ -48,6 +48,7 @@
               <th class="p-3">Qtd</th>
               <th class="p-3">Data</th>
               <th class="p-3">Saldo</th>
+              <th class="p-3">Ação</th>
             </tr>
           </thead>
           <tbody id="historicoBody" class="bg-white"></tbody>
@@ -70,88 +71,147 @@
   </div>
 
   <script>
-    const apiBase = "https://app.nocodb.com/api/v2/tables/vw2q36yj7ulcra84/records";
+    const apiBase = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
     const apiToken = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
+    let historico = [];
+    let estoque = {};
+    let saldo = 0;
 
-    function registrarMovimentacao() {
-      const usuario = document.getElementById('usuario').value;
-      const produto = document.getElementById('produto').value;
+    function carregarDados() {
+      fetch(apiBase + "?limit=100", {
+        headers: {
+          "accept": "application/json",
+          "xc-token": apiToken
+        }
+      })
+      .then(res => res.json())
+      .then(json => {
+        historico = json.list.map(row => ({
+          id: row.id,
+          usuario: row.Usuario,
+          produto: row.Produto,
+          tipo: row.Tipo,
+          quantidade: parseInt(row.Quantidade),
+          data: row.Data,
+          saldoApos: parseInt(row.SaldoApos)
+        }));
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      })
+      .catch(err => alert("Erro ao carregar dados: " + err));
+    }
+
+    function registrarMovimentacao(salvarNaApi = false) {
+      const usuario = document.getElementById('usuario').value.trim();
+      const produto = document.getElementById('produto').value.trim();
       const quantidade = parseInt(document.getElementById('quantidade').value);
       const tipo = document.getElementById('tipo').value;
-      const data = new Date().toLocaleString();
-
-      if (!usuario || !produto || isNaN(quantidade)) {
-        alert("Preencha todos os campos!");
+      if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
+        alert("Preencha todos os campos corretamente.");
         return;
       }
-
-      const body = {
+      const data = new Date().toLocaleString('pt-BR');
+      const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
+      const novo = {
         Usuario: usuario,
         Produto: produto,
         Tipo: tipo,
         Quantidade: quantidade,
         Data: data,
-        SaldoApos: 0 // será atualizado depois
+        SaldoApos: saldoProduto
       };
 
-      fetch(apiBase, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xc-token": apiToken
-        },
-        body: JSON.stringify({ fields: body })
-      })
-      .then(res => res.json())
-      .then(() => {
-        alert("Movimentação registrada com sucesso!");
-        location.reload();
-      })
-      .catch(err => alert("Erro ao registrar: " + err));
+      if (salvarNaApi) {
+        fetch(apiBase, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xc-token": apiToken
+          },
+          body: JSON.stringify({ fields: novo })
+        })
+        .then(() => {
+          carregarDados();
+          limparCampos();
+        })
+        .catch(() => alert("Erro ao registrar movimentação"));
+      }
     }
 
-    function carregarHistorico() {
-      fetch(apiBase, {
-        headers: { "xc-token": apiToken }
-      })
-      .then(res => res.json())
-      .then(json => {
-        const historico = json.list;
-        let saldo = 0;
-        const estoque = {};
-        const historicoHTML = historico.map((item, i) => {
-          const qtd = parseInt(item.Quantidade);
-          const isEntrada = item.Tipo === "entrada";
-          saldo += isEntrada ? qtd : -qtd;
-          item.SaldoApos = saldo;
+    function recalcularSaldos() {
+      estoque = {}; saldo = 0;
+      historico.forEach(item => {
+        if (!estoque[item.produto]) estoque[item.produto] = 0;
+        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        item.saldoApos = estoque[item.produto];
+      });
+      document.getElementById('saldoTotal').textContent = saldo;
+    }
 
-          if (!estoque[item.Produto]) estoque[item.Produto] = 0;
-          estoque[item.Produto] += isEntrada ? qtd : -qtd;
-
-          return `<tr>
-            <td class="p-2">${i + 1}</td>
-            <td class="p-2">${item.Usuario}</td>
-            <td class="p-2">${item.Produto}</td>
-            <td class="p-2 ${isEntrada ? 'entrada' : 'saida'}">${item.Tipo}</td>
-            <td class="p-2">${qtd}</td>
-            <td class="p-2">${item.Data}</td>
-            <td class="p-2">${item.SaldoApos}</td>
-          </tr>`;
-        }).join("");
-
-        document.getElementById("historicoBody").innerHTML = historicoHTML;
-        document.getElementById("saldoTotal").textContent = saldo;
-
-        const resumoHTML = Object.entries(estoque).map(([produto, qtd]) => `<tr>
-          <td class="p-2">${produto}</td>
-          <td class="p-2">${qtd}</td>
-        </tr>`).join("");
-
-        document.getElementById("resumoEstoque").innerHTML = resumoHTML;
+    function atualizarHistorico(filtro = "") {
+      const tbody = document.getElementById('historicoBody');
+      tbody.innerHTML = "";
+      historico.forEach((item, index) => {
+        if (!filtro || item.produto.toLowerCase().includes(filtro)) {
+          tbody.innerHTML += `
+            <tr>
+              <td class="p-3">${item.id}</td>
+              <td class="p-3">${item.usuario}</td>
+              <td class="p-3">${item.produto}</td>
+              <td class="p-3 ${item.tipo}">${item.tipo}</td>
+              <td class="p-3">${item.quantidade}</td>
+              <td class="p-3">${item.data}</td>
+              <td class="p-3">${item.saldoApos}</td>
+              <td class="p-3">
+                <button onclick="deletarRegistro('${item.id}', ${index})" class="text-red-500 hover:underline">Excluir</button>
+              </td>
+            </tr>`;
+        }
       });
     }
 
-    window.onload = carregarHistorico;
+    function atualizarResumoEstoque() {
+      const tbody = document.getElementById('resumoEstoque');
+      tbody.innerHTML = "";
+      for (let produto in estoque) {
+        tbody.innerHTML += `
+          <tr>
+            <td class="p-3">${produto}</td>
+            <td class="p-3">${estoque[produto]}</td>
+          </tr>`;
+      }
+    }
+
+    function pesquisarMovimentacoes() {
+      const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
+      atualizarHistorico(termo);
+    }
+
+    function deletarRegistro(id, index) {
+      if (!confirm("Deseja excluir este registro?")) return;
+      fetch(`${apiBase}/${id}`, {
+        method: "DELETE",
+        headers: { "xc-token": apiToken }
+      })
+      .then(() => {
+        historico.splice(index, 1);
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      })
+      .catch(() => alert("Erro ao excluir"));
+    }
+
+    function limparCampos() {
+      document.getElementById('usuario').value = "";
+      document.getElementById('produto').value = "";
+      document.getElementById('quantidade').value = "";
+      document.getElementById('tipo').value = "entrada";
+    }
+
+    window.onload = carregarDados;
   </script>
 </body>
 </html>
