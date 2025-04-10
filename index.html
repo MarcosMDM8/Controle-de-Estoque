@@ -1,169 +1,216 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Controle de Estoque</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Controle de Estoque</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f4f7fa;
-      margin: 0;
-      padding: 20px;
-      color: #333;
-    }
-
-    h1 {
-      text-align: center;
-      color: #2c3e50;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 30px;
-      background: #fff;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    }
-
-    th, td {
-      padding: 15px;
-      text-align: left;
-      border-bottom: 1px solid #eee;
-    }
-
-    th {
-      background-color: #3498db;
-      color: white;
-    }
-
-    tr:hover {
-      background-color: #f1f1f1;
-    }
-
-    form {
-      max-width: 500px;
-      margin: 40px auto;
-      padding: 20px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    form input, form button {
-      width: 100%;
-      padding: 12px;
-      margin: 8px 0;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-    }
-
-    form button {
-      background-color: #2ecc71;
-      color: white;
-      border: none;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    form button:hover {
-      background-color: #27ae60;
-    }
+    .entrada { color: #22c55e; font-weight: bold; }
+    .saida { color: #ef4444; font-weight: bold; }
   </style>
 </head>
-<body>
-  <h1>📦 Controle de Estoque</h1>
+<body class="bg-gray-50 text-gray-800 font-sans">
 
-  <form id="add-form">
-    <h2 style="text-align: center;">Adicionar Novo Produto</h2>
-    <label for="produto">Produto:</label>
-    <input type="text" id="produto" required>
+  <div class="max-w-6xl mx-auto p-6 shadow-xl bg-white rounded-xl mt-10">
+    <h1 class="text-3xl font-bold text-center text-indigo-600 flex items-center justify-center gap-2 mb-6">
+      📦 Sistema de Controle de Estoque
+    </h1>
 
-    <label for="quantidade">Quantidade:</label>
-    <input type="number" id="quantidade" required>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+      <input id="usuario" class="border p-2 rounded-md col-span-1" type="text" placeholder="Nome do Usuário" />
+      <input id="produto" class="border p-2 rounded-md col-span-1" type="text" placeholder="Produto" />
+      <input id="quantidade" class="border p-2 rounded-md col-span-1" type="number" placeholder="Quantidade" />
+      <select id="tipo" class="border p-2 rounded-md col-span-1">
+        <option value="entrada">Entrada</option>
+        <option value="saida">Saída</option>
+      </select>
+      <button onclick="registrarMovimentacao(true)" class="bg-indigo-600 text-white rounded-md px-4 py-2 hover:bg-indigo-700 col-span-1">
+        Registrar
+      </button>
+    </div>
 
-    <label for="categoria">Categoria:</label>
-    <input type="text" id="categoria">
+    <div class="text-center font-bold text-lg mb-6">Saldo Atual: <span id="saldoTotal" class="text-indigo-700">0</span></div>
 
-    <button type="submit">Salvar</button>
-  </form>
+    <div class="mb-4">
+      <h2 class="text-xl font-semibold text-blue-700 mb-2">🔍 Pesquisar Movimentações</h2>
+      <div class="flex gap-2">
+        <input id="pesquisaProduto" class="border p-2 rounded-md w-full" type="text" placeholder="Digite o nome do produto" />
+        <button onclick="pesquisarMovimentacoes()" class="bg-indigo-600 text-white rounded-md px-4 py-2 hover:bg-indigo-700">
+          Pesquisar
+        </button>
+      </div>
+    </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Produto</th>
-        <th>Quantidade</th>
-        <th>Categoria</th>
-      </tr>
-    </thead>
-    <tbody id="tabela-dados">
-      <!-- Dados serão inseridos aqui -->
-    </tbody>
-  </table>
+    <div class="mb-6">
+      <h2 class="text-xl font-semibold text-purple-700 mb-2">📄 Histórico de Movimentações</h2>
+      <table class="w-full table-auto text-sm text-center shadow-sm bg-gray-100 rounded-md">
+        <thead class="bg-indigo-100">
+          <tr>
+            <th class="p-2">Usuário</th>
+            <th class="p-2">Produto</th>
+            <th class="p-2">Tipo</th>
+            <th class="p-2">Quantidade</th>
+            <th class="p-2">Data</th>
+            <th class="p-2">Saldo Após</th>
+          </tr>
+        </thead>
+        <tbody id="historicoBody" class="bg-white"></tbody>
+      </table>
+    </div>
+
+    <div>
+      <h2 class="text-xl font-semibold text-yellow-600 mb-2">📦 Resumo do Estoque</h2>
+      <table class="w-full table-auto text-sm text-center shadow-sm bg-gray-100 rounded-md">
+        <thead class="bg-yellow-100">
+          <tr>
+            <th class="p-2">Produto</th>
+            <th class="p-2">Quantidade Total</th>
+          </tr>
+        </thead>
+        <tbody id="resumoEstoque" class="bg-white"></tbody>
+      </table>
+    </div>
+  </div>
 
   <script>
-    const API_URL = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
-    const API_TOKEN = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
+    const token = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
+    const tabela = "m9hu3563ew9nw4g";
+    const apiBase = `https://app.nocodb.com/api/v2/tables/${tabela}/records`;
 
-    // Carregar dados ao iniciar
-    async function carregarDados() {
-      const res = await fetch(API_URL + "?limit=100", {
-        headers: { "xc-token": API_TOKEN }
+    let historico = [];
+    let estoque = {};
+    let saldo = 0;
+
+    function gerarId() {
+      return Math.floor(Math.random() * 1000000).toString();
+    }
+
+    function carregarDados() {
+      fetch(apiBase, {
+        headers: {
+          "xc-token": token
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          historico = data.list.map(row => ({
+            id: row.id,
+            usuario: row.usuario,
+            produto: row.produto,
+            tipo: row.tipo,
+            quantidade: parseInt(row.quantidade),
+            data: row.data,
+            saldoApos: parseInt(row.saldoApos)
+          }));
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+        })
+        .catch(err => console.error("Erro ao carregar dados:", err));
+    }
+
+    function registrarMovimentacao(salvarNaApi = false) {
+      const usuario = document.getElementById('usuario').value.trim();
+      const produto = document.getElementById('produto').value.trim();
+      const quantidade = parseInt(document.getElementById('quantidade').value);
+      const tipo = document.getElementById('tipo').value;
+
+      if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
+        alert("Preencha todos os campos corretamente.");
+        return;
+      }
+
+      const data = new Date().toLocaleString('pt-BR');
+      const id = gerarId();
+      const novoRegistro = { id, usuario, produto, tipo, quantidade, data };
+
+      if (!estoque[produto]) estoque[produto] = 0;
+      novoRegistro.saldoApos = tipo === "entrada" ? estoque[produto] + quantidade : estoque[produto] - quantidade;
+
+      if (salvarNaApi) {
+        fetch(apiBase, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xc-token": token
+          },
+          body: JSON.stringify({
+            usuario,
+            produto,
+            tipo,
+            quantidade,
+            data,
+            saldoApos: novoRegistro.saldoApos
+          })
+        })
+          .then(() => {
+            historico.push(novoRegistro);
+            recalcularSaldos();
+            atualizarHistorico();
+            atualizarResumoEstoque();
+            limparCampos();
+          })
+          .catch(() => alert("Erro ao registrar movimentação"));
+      }
+    }
+
+    function recalcularSaldos() {
+      estoque = {};
+      saldo = 0;
+      historico.forEach(item => {
+        if (!estoque[item.produto]) estoque[item.produto] = 0;
+        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        item.saldoApos = estoque[item.produto];
       });
-      const data = await res.json();
+      document.getElementById('saldoTotal').textContent = saldo;
+    }
 
-      const tabela = document.getElementById("tabela-dados");
-      tabela.innerHTML = "";
-
-      data.list.forEach(item => {
-        const linha = document.createElement("tr");
-        linha.innerHTML = `
-          <td>${item.Produto || ''}</td>
-          <td>${item.Quantidade || ''}</td>
-          <td>${item.Categoria || ''}</td>
-        `;
-        tabela.appendChild(linha);
+    function atualizarHistorico(filtro = "") {
+      const tbody = document.getElementById('historicoBody');
+      tbody.innerHTML = "";
+      historico.forEach(item => {
+        if (!filtro || item.produto.toLowerCase().includes(filtro.toLowerCase())) {
+          const row = `
+            <tr>
+              <td class="p-2">${item.usuario}</td>
+              <td class="p-2">${item.produto}</td>
+              <td class="p-2 ${item.tipo}">${item.tipo}</td>
+              <td class="p-2">${item.quantidade}</td>
+              <td class="p-2">${item.data}</td>
+              <td class="p-2">${item.saldoApos}</td>
+            </tr>`;
+          tbody.innerHTML += row;
+        }
       });
     }
 
-    // Enviar novo produto
-    document.getElementById("add-form").addEventListener("submit", async function(e) {
-      e.preventDefault();
-
-      const produto = document.getElementById("produto").value;
-      const quantidade = document.getElementById("quantidade").value;
-      const categoria = document.getElementById("categoria").value;
-
-      const data = {
-        Produto: produto,
-        Quantidade: parseInt(quantidade),
-        Categoria: categoria
-      };
-
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xc-token": API_TOKEN
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (res.ok) {
-        alert("✅ Produto adicionado com sucesso!");
-        document.getElementById("add-form").reset();
-        carregarDados(); // Atualiza a tabela
-      } else {
-        alert("❌ Erro ao adicionar. Veja o console.");
-        console.error(await res.text());
+    function atualizarResumoEstoque() {
+      const tbody = document.getElementById('resumoEstoque');
+      tbody.innerHTML = "";
+      for (let produto in estoque) {
+        tbody.innerHTML += `
+          <tr>
+            <td class="p-2">${produto}</td>
+            <td class="p-2">${estoque[produto]}</td>
+          </tr>`;
       }
-    });
+    }
 
-    // Carregar dados ao abrir a página
-    carregarDados();
+    function pesquisarMovimentacoes() {
+      const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
+      atualizarHistorico(termo);
+    }
+
+    function limparCampos() {
+      document.getElementById('usuario').value = "";
+      document.getElementById('produto').value = "";
+      document.getElementById('quantidade').value = "";
+      document.getElementById('tipo').value = "entrada";
+    }
+
+    window.onload = carregarDados;
   </script>
 </body>
 </html>
