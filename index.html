@@ -89,15 +89,19 @@
         if (!json.list || !Array.isArray(json.list)) {
           throw new Error("Resposta inválida da API");
         }
-        historico = json.list.map(row => ({
-          id: row.id,
-          usuario: row.fields.usuario,
-          produto: row.fields.produto,
-          tipo: row.fields.tipo,
-          quantidade: parseInt(row.fields.quantidade),
-          data: row.fields.data,
-          saldoApos: parseInt(row.fields.saldoApos)
-        }));
+
+        historico = json.list
+          .filter(row => row.fields)
+          .map(row => ({
+            id: row.id || "sem-id",
+            usuario: row.fields.usuario || "sem usuário",
+            produto: row.fields.produto || "sem produto",
+            tipo: row.fields.tipo || "indefinido",
+            quantidade: parseInt(row.fields.quantidade) || 0,
+            data: row.fields.data || "sem data",
+            saldoApos: parseInt(row.fields.saldoApos) || 0
+          }));
+
         recalcularSaldos();
         atualizarHistorico();
         atualizarResumoEstoque();
@@ -120,12 +124,7 @@
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
       const novo = {
-        usuario,
-        produto,
-        tipo,
-        quantidade,
-        data,
-        saldoApos: saldoProduto
+        usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto
       };
 
       if (salvarNaApi) {
