@@ -1,170 +1,215 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Controle de Estoque</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f5f5ff;
-      padding: 20px;
+      padding: 40px;
+      background: #f5f7ff;
     }
     h1 {
-      color: #4a00e0;
+      text-align: center;
+      color: #4a35d4;
+    }
+    .form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
     }
     input, select, button {
-      margin: 5px;
-      padding: 8px;
-      border-radius: 5px;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 8px;
       border: 1px solid #ccc;
+    }
+    button {
+      background: #4a35d4;
+      color: white;
+      border: none;
+      cursor: pointer;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 15px;
+      margin-top: 20px;
+      background: white;
     }
     th, td {
-      border: 1px solid #ccc;
       padding: 10px;
+      border: 1px solid #ddd;
       text-align: center;
     }
     th {
-      background-color: #e6e6ff;
+      background: #eef;
     }
-    .excluir {
-      color: red;
-      cursor: pointer;
+    #saldo {
+      text-align: center;
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    .search-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .search-container input {
+      width: 200px;
     }
   </style>
 </head>
 <body>
-  <h1>📦 Controle de Estoque</h1>
 
-  <div>
-    <input type="text" id="usuario" placeholder="Usuário">
-    <input type="text" id="produto" placeholder="Produto">
-    <input type="number" id="quantidade" placeholder="Quantidade">
-    <select id="tipo">
-      <option value="entrada">Entrada</option>
-      <option value="saida">Saída</option>
-    </select>
-    <button onclick="registrar()">Registrar</button>
-    <strong>Saldo Atual: <span id="saldoAtual">0</span></strong>
-  </div>
+<h1>📦 Controle de Estoque</h1>
 
-  <h2>📜 Histórico</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Usuário</th>
-        <th>Produto</th>
-        <th>Tipo</th>
-        <th>Qtd</th>
-        <th>Data</th>
-        <th>Saldo</th>
-        <th>Ação</th>
-      </tr>
-    </thead>
-    <tbody id="historico"></tbody>
-  </table>
+<div class="form">
+  <input id="usuario" placeholder="Usuário">
+  <input id="produto" placeholder="Produto">
+  <input id="quantidade" type="number" placeholder="Quantidade">
+  <select id="tipo">
+    <option value="Entrada">Entrada</option>
+    <option value="Saída">Saída</option>
+  </select>
+  <button onclick="registrarMovimentacao()">Registrar</button>
+</div>
 
-  <script>
-    const API_URL = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
-    const TOKEN = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
+<div id="saldo">Saldo Atual: <span id="saldoAtual">0</span></div>
 
-    async function carregarHistorico() {
-      const res = await fetch(API_URL, {
-        headers: { "xc-token": TOKEN }
-      });
-      const data = await res.json();
-      const registros = data.list || [];
+<div class="search-container">
+  <input id="busca" placeholder="Buscar produto..." oninput="filtrarProdutos()">
+</div>
 
-      let saldo = 0;
-      const tbody = document.getElementById("historico");
-      tbody.innerHTML = "";
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Usuário</th>
+      <th>Produto</th>
+      <th>Tipo</th>
+      <th>Qtd</th>
+      <th>Data</th>
+      <th>Saldo</th>
+      <th>Ação</th>
+    </tr>
+  </thead>
+  <tbody id="tabela">
+    <!-- Dados serão preenchidos aqui -->
+  </tbody>
+</table>
 
-      registros.forEach((r) => {
-        const f = r.fields;
-        const qtd = Number(f.quantidade) || 0;
-        if (f.tipo === "entrada") saldo += qtd;
-        else if (f.tipo === "saida") saldo -= qtd;
+<script>
+  const API_URL = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
+  const API_TOKEN = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
 
-        tbody.innerHTML += `
-          <tr>
-            <td>${r.id}</td>
-            <td>${f.usuario}</td>
-            <td>${f.produto}</td>
-            <td>${f.tipo}</td>
-            <td>${f.quantidade}</td>
-            <td>${f.data}</td>
-            <td>${f.saldoApos}</td>
-            <td><span class="excluir" onclick="excluir('${r.id}')">Excluir</span></td>
-          </tr>
-        `;
-      });
+  async function carregarDados() {
+    const resposta = await fetch(API_URL, {
+      headers: { 'xc-token': API_TOKEN }
+    });
+    const dados = await resposta.json();
 
-      document.getElementById("saldoAtual").textContent = saldo;
+    const historico = dados.list || [];
+
+    const tabela = document.getElementById("tabela");
+    tabela.innerHTML = "";
+
+    let saldoTotal = 0;
+    historico.forEach(item => {
+      const { id, usuario, produto, tipo, quantidade, data, saldoApos } = item.fields;
+      saldoTotal = saldoApos || 0;
+
+      const linha = document.createElement("tr");
+      linha.innerHTML = `
+        <td>${id || ""}</td>
+        <td>${usuario || ""}</td>
+        <td>${produto || ""}</td>
+        <td>${tipo || ""}</td>
+        <td>${quantidade || 0}</td>
+        <td>${data || ""}</td>
+        <td>${saldoApos ?? 0}</td>
+        <td><button style="color:red;" onclick="excluir('${item.id}')">Excluir</button></td>
+      `;
+      tabela.appendChild(linha);
+    });
+
+    document.getElementById("saldoAtual").innerText = saldoTotal;
+  }
+
+  async function registrarMovimentacao() {
+    const usuario = document.getElementById("usuario").value;
+    const produto = document.getElementById("produto").value;
+    const quantidade = parseInt(document.getElementById("quantidade").value);
+    const tipo = document.getElementById("tipo").value;
+
+    if (!usuario || !produto || !quantidade || isNaN(quantidade)) {
+      alert("Preencha todos os campos corretamente!");
+      return;
     }
 
-    async function registrar() {
-      const usuario = document.getElementById("usuario").value;
-      const produto = document.getElementById("produto").value;
-      const quantidade = Number(document.getElementById("quantidade").value);
-      const tipo = document.getElementById("tipo").value;
-      const data = new Date().toLocaleString();
+    // Busca dados atuais para calcular novo saldo
+    const resposta = await fetch(API_URL, {
+      headers: { 'xc-token': API_TOKEN }
+    });
+    const dados = await resposta.json();
+    const historico = dados.list || [];
+    const totalAnterior = historico.length ? historico[historico.length - 1].fields.saldoApos || 0 : 0;
+    const novoSaldo = tipo === "Entrada" ? totalAnterior + quantidade : totalAnterior - quantidade;
 
-      const saldoAtual = document.getElementById("saldoAtual").textContent;
-      const novoSaldo = tipo === "entrada"
-        ? Number(saldoAtual) + quantidade
-        : Number(saldoAtual) - quantidade;
+    const dataAtual = new Date().toLocaleString("pt-BR");
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "xc-token": TOKEN
-        },
-        body: JSON.stringify({
-          fields: {
-            usuario,
-            produto,
-            tipo,
-            quantidade,
-            data,
-            saldoApos: novoSaldo
-          }
-        })
-      });
-
-      if (res.ok) {
-        await carregarHistorico();
-        document.getElementById("usuario").value = "";
-        document.getElementById("produto").value = "";
-        document.getElementById("quantidade").value = "";
-      } else {
-        alert("Erro ao registrar movimentação.");
+    const body = {
+      fields: {
+        usuario,
+        produto,
+        tipo,
+        quantidade,
+        data: dataAtual,
+        saldoApos: novoSaldo
       }
-    }
+    };
 
-    async function excluir(id) {
-      if (!confirm("Deseja excluir este registro?")) return;
+    await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xc-token": API_TOKEN
+      },
+      body: JSON.stringify(body)
+    });
 
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-        headers: {
-          "xc-token": TOKEN
-        }
-      });
+    document.getElementById("usuario").value = "";
+    document.getElementById("produto").value = "";
+    document.getElementById("quantidade").value = "";
 
-      if (res.ok) {
-        await carregarHistorico();
-      } else {
-        alert("Erro ao excluir.");
-      }
-    }
+    carregarDados();
+  }
 
-    carregarHistorico();
-  </script>
+  async function excluir(id) {
+    if (!confirm("Tem certeza que deseja excluir?")) return;
+
+    await fetch(`${API_URL}/${id}`, {
+      method: "DELETE",
+      headers: { 'xc-token': API_TOKEN }
+    });
+
+    carregarDados();
+  }
+
+  function filtrarProdutos() {
+    const termo = document.getElementById("busca").value.toLowerCase();
+    const linhas = document.querySelectorAll("#tabela tr");
+
+    linhas.forEach(linha => {
+      const produto = linha.children[2]?.textContent?.toLowerCase() || "";
+      linha.style.display = produto.includes(termo) ? "" : "none";
+    });
+  }
+
+  carregarDados();
+</script>
+
 </body>
 </html>
