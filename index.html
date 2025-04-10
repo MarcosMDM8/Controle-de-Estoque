@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Controle de Estoque</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
@@ -22,7 +22,7 @@
         <option value="entrada">Entrada</option>
         <option value="saida">Saída</option>
       </select>
-      <button onclick="registrarMovimentacao(true)" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
+      <button onclick="registrarMovimentacao()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
     </div>
 
     <div class="text-center text-xl font-semibold mb-8">Saldo Atual: <span id="saldoTotal" class="text-indigo-700">0</span></div>
@@ -48,7 +48,6 @@
               <th class="p-3">Qtd</th>
               <th class="p-3">Data</th>
               <th class="p-3">Saldo</th>
-              <th class="p-3">Ação</th>
             </tr>
           </thead>
           <tbody id="historicoBody" class="bg-white"></tbody>
@@ -71,17 +70,21 @@
   </div>
 
   <script>
-    const apiBase = "https://v1.nocodeapi.com/tecnico/google_sheets/mnbcbbwqe1ywksz";
-    const sheetName = "Estoque"; // Troque para o nome da aba da planilha, se for diferente
+    const sheetId = "mnbcbbwqe1ywksz"; // Seu código NocodeAPI
+    const apiBase = `https://v1.nocodeapi.com/tecnico/google_sheets/${sheetId}?tabId=Estoque`;
+
     let historico = [];
     let estoque = {};
     let saldo = 0;
 
     function carregarDados() {
-      fetch(`${apiBase}?tabId=${sheetName}`)
+      fetch(apiBase)
         .then(res => res.json())
         .then(json => {
-          historico = json.slice(1).map((row, index) => ({
+          if (!json.data || !Array.isArray(json.data)) {
+            throw new Error("Resposta inválida da API");
+          }
+          historico = json.data.slice(1).map((row, index) => ({
             id: index + 1,
             usuario: row[0],
             produto: row[1],
@@ -94,10 +97,10 @@
           atualizarHistorico();
           atualizarResumoEstoque();
         })
-        .catch(err => alert("Erro ao carregar dados: " + err));
+        .catch(err => alert("Erro ao carregar dados: " + err.message));
     }
 
-    function registrarMovimentacao(salvarNaApi = false) {
+    function registrarMovimentacao() {
       const usuario = document.getElementById('usuario').value.trim();
       const produto = document.getElementById('produto').value.trim();
       const quantidade = parseInt(document.getElementById('quantidade').value);
@@ -108,41 +111,25 @@
       }
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = [usuario, produto, tipo, quantidade, data, saldoProduto];
+      const novaLinha = [[usuario, produto, tipo, quantidade, data, saldoProduto]];
 
-      if (salvarNaApi) {
-        fetch(`${apiBase}?tabId=${sheetName}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify([novo])
-        })
-        .then(() => {
-          carregarDados();
-          limparCampos();
-        })
-        .catch(() => alert("Erro ao registrar movimentação"));
-      }
-    }
-
-    function deletarRegistro(id, index) {
-      if (!confirm("Deseja excluir este registro?")) return;
-      const rowIndex = id + 1; // pular cabeçalho
-      fetch(`${apiBase}?tabId=${sheetName}&row=${rowIndex}`, {
-        method: "DELETE"
+      fetch(apiBase, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ values: novaLinha })
       })
       .then(() => {
-        historico.splice(index, 1);
-        recalcularSaldos();
-        atualizarHistorico();
-        atualizarResumoEstoque();
+        carregarDados();
+        limparCampos();
       })
-      .catch(() => alert("Erro ao excluir"));
+      .catch(() => alert("Erro ao registrar movimentação"));
     }
 
     function recalcularSaldos() {
-      estoque = {}; saldo = 0;
+      estoque = {};
+      saldo = 0;
       historico.forEach(item => {
         if (!estoque[item.produto]) estoque[item.produto] = 0;
         estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
@@ -155,7 +142,7 @@
     function atualizarHistorico(filtro = "") {
       const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
-      historico.forEach((item, index) => {
+      historico.forEach(item => {
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
@@ -166,9 +153,6 @@
               <td class="p-3">${item.quantidade}</td>
               <td class="p-3">${item.data}</td>
               <td class="p-3">${item.saldoApos}</td>
-              <td class="p-3">
-                <button onclick="deletarRegistro(${item.id}, ${index})" class="text-red-500 hover:underline">Excluir</button>
-              </td>
             </tr>`;
         }
       });
