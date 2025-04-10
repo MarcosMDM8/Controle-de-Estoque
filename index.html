@@ -53,6 +53,7 @@
             <th class="p-2">Quantidade</th>
             <th class="p-2">Data</th>
             <th class="p-2">Saldo Após</th>
+            <th class="p-2">Ações</th>
           </tr>
         </thead>
         <tbody id="historicoBody" class="bg-white"></tbody>
@@ -74,10 +75,8 @@
   </div>
 
   <script>
-    const token = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
-    const tabela = "m9hu3563ew9nw4g";
-    const apiBase = `https://app.nocodb.com/api/v2/tables/${tabela}/records`;
-
+    const apiBase = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
+    const apiToken = "IXhHEyqFQ-EkdhQgKcCoJX9WVl_tbp3CSr8-iReAE-q3fPb-dpbbvgSkaaM";
     let historico = [];
     let estoque = {};
     let saldo = 0;
@@ -87,27 +86,28 @@
     }
 
     function carregarDados() {
-      fetch(apiBase, {
+      fetch(`${apiBase}?offset=0&limit=100`, {
         headers: {
-          "xc-token": token
+          "xc-token": apiToken
         }
       })
-        .then(res => res.json())
-        .then(data => {
-          historico = data.list.map(row => ({
-            id: row.id,
-            usuario: row.usuario,
-            produto: row.produto,
-            tipo: row.tipo,
-            quantidade: parseInt(row.quantidade),
-            data: row.data,
-            saldoApos: parseInt(row.saldoApos)
-          }));
-          recalcularSaldos();
-          atualizarHistorico();
-          atualizarResumoEstoque();
-        })
-        .catch(err => console.error("Erro ao carregar dados:", err));
+      .then(res => res.json())
+      .then(json => {
+        const data = json.list || [];
+        historico = data.map(row => ({
+          id: row.Id,
+          usuario: row.Usuario,
+          produto: row.Produto,
+          tipo: row.Tipo,
+          quantidade: parseInt(row.Quantidade),
+          data: row.Data,
+          saldoApos: parseInt(row.SaldoApos)
+        }));
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      })
+      .catch(err => console.error("Erro ao carregar dados:", err));
     }
 
     function registrarMovimentacao(salvarNaApi = false) {
@@ -133,25 +133,25 @@
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "xc-token": token
+            "xc-token": apiToken
           },
           body: JSON.stringify({
-            usuario,
-            produto,
-            tipo,
-            quantidade,
-            data,
-            saldoApos: novoRegistro.saldoApos
+            Usuario: usuario,
+            Produto: produto,
+            Tipo: tipo,
+            Quantidade: quantidade,
+            Data: data,
+            SaldoApos: novoRegistro.saldoApos
           })
         })
-          .then(() => {
-            historico.push(novoRegistro);
-            recalcularSaldos();
-            atualizarHistorico();
-            atualizarResumoEstoque();
-            limparCampos();
-          })
-          .catch(() => alert("Erro ao registrar movimentação"));
+        .then(() => {
+          historico.push(novoRegistro);
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+          limparCampos();
+        })
+        .catch(() => alert("Erro ao registrar movimentação"));
       }
     }
 
@@ -170,7 +170,7 @@
     function atualizarHistorico(filtro = "") {
       const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
-      historico.forEach(item => {
+      historico.forEach((item, index) => {
         if (!filtro || item.produto.toLowerCase().includes(filtro.toLowerCase())) {
           const row = `
             <tr>
@@ -180,6 +180,9 @@
               <td class="p-2">${item.quantidade}</td>
               <td class="p-2">${item.data}</td>
               <td class="p-2">${item.saldoApos}</td>
+              <td class="p-2">
+                <button onclick="deletarRegistro('${item.id}', ${index})" class="text-red-500 hover:underline">Excluir</button>
+              </td>
             </tr>`;
           tbody.innerHTML += row;
         }
@@ -201,6 +204,23 @@
     function pesquisarMovimentacoes() {
       const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
       atualizarHistorico(termo);
+    }
+
+    function deletarRegistro(id, index) {
+      if (!confirm("Deseja excluir esse registro?")) return;
+      fetch(`${apiBase}/${id}`, {
+        method: "DELETE",
+        headers: {
+          "xc-token": apiToken
+        }
+      })
+      .then(() => {
+        historico.splice(index, 1);
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      })
+      .catch(() => alert("Erro ao excluir"));
     }
 
     function limparCampos() {
