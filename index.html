@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Controle de Estoque</title>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background-color: #f2f4f8;
+      background: #f4f7fa;
       margin: 0;
       padding: 20px;
+      color: #333;
     }
 
     h1 {
@@ -18,18 +19,18 @@
     }
 
     table {
-      width: 90%;
-      margin: 20px auto;
+      width: 100%;
       border-collapse: collapse;
-      background-color: #fff;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
+      margin-top: 30px;
+      background: #fff;
+      border-radius: 10px;
       overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
 
     th, td {
-      padding: 12px 15px;
-      text-align: center;
+      padding: 15px;
+      text-align: left;
       border-bottom: 1px solid #eee;
     }
 
@@ -41,70 +42,128 @@
     tr:hover {
       background-color: #f1f1f1;
     }
+
+    form {
+      max-width: 500px;
+      margin: 40px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    form input, form button {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    form button {
+      background-color: #2ecc71;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    form button:hover {
+      background-color: #27ae60;
+    }
   </style>
 </head>
 <body>
-  <h1>Controle de Estoque</h1>
-  <table id="estoque-table">
+  <h1>📦 Controle de Estoque</h1>
+
+  <form id="add-form">
+    <h2 style="text-align: center;">Adicionar Novo Produto</h2>
+    <label for="produto">Produto:</label>
+    <input type="text" id="produto" required>
+
+    <label for="quantidade">Quantidade:</label>
+    <input type="number" id="quantidade" required>
+
+    <label for="categoria">Categoria:</label>
+    <input type="text" id="categoria">
+
+    <button type="submit">Salvar</button>
+  </form>
+
+  <table>
     <thead>
-      <tr id="header-row"></tr>
+      <tr>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Categoria</th>
+      </tr>
     </thead>
-    <tbody id="data-body"></tbody>
+    <tbody id="tabela-dados">
+      <!-- Dados serão inseridos aqui -->
+    </tbody>
   </table>
 
   <script>
-    const apiUrl = 'https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records?limit=50';
-    const token = 'w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id';
+    const API_URL = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
+    const API_TOKEN = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
 
-    fetch(apiUrl, {
-      headers: {
-        'xc-token': token
-      }
-    })
-    .then(response => response.json())
-    .then(data => {
-      const records = data.list || [];
-      const tableHead = document.getElementById("header-row");
-      const tableBody = document.getElementById("data-body");
+    // Carregar dados ao iniciar
+    async function carregarDados() {
+      const res = await fetch(API_URL + "?limit=100", {
+        headers: { "xc-token": API_TOKEN }
+      });
+      const data = await res.json();
 
-      if (records.length > 0) {
-        // Cria cabeçalho
-        const headers = Object.keys(records[0]);
-        headers.forEach(key => {
-          const th = document.createElement("th");
-          th.textContent = key;
-          tableHead.appendChild(th);
-        });
+      const tabela = document.getElementById("tabela-dados");
+      tabela.innerHTML = "";
 
-        // Cria linhas
-        records.forEach(record => {
-          const tr = document.createElement("tr");
-          headers.forEach(key => {
-            const td = document.createElement("td");
-            td.textContent = record[key];
-            tr.appendChild(td);
-          });
-          tableBody.appendChild(tr);
-        });
+      data.list.forEach(item => {
+        const linha = document.createElement("tr");
+        linha.innerHTML = `
+          <td>${item.Produto || ''}</td>
+          <td>${item.Quantidade || ''}</td>
+          <td>${item.Categoria || ''}</td>
+        `;
+        tabela.appendChild(linha);
+      });
+    }
+
+    // Enviar novo produto
+    document.getElementById("add-form").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      const produto = document.getElementById("produto").value;
+      const quantidade = document.getElementById("quantidade").value;
+      const categoria = document.getElementById("categoria").value;
+
+      const data = {
+        Produto: produto,
+        Quantidade: parseInt(quantidade),
+        Categoria: categoria
+      };
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xc-token": API_TOKEN
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        alert("✅ Produto adicionado com sucesso!");
+        document.getElementById("add-form").reset();
+        carregarDados(); // Atualiza a tabela
       } else {
-        const row = document.createElement("tr");
-        const td = document.createElement("td");
-        td.colSpan = 10;
-        td.textContent = "Nenhum dado encontrado.";
-        row.appendChild(td);
-        tableBody.appendChild(row);
+        alert("❌ Erro ao adicionar. Veja o console.");
+        console.error(await res.text());
       }
-    })
-    .catch(error => {
-      console.error("Erro ao buscar dados:", error);
-      const tableBody = document.getElementById("data-body");
-      const row = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 10;
-      td.textContent = "Erro ao carregar os dados.";
-      row.appendChild(td);
-      tableBody.appendChild(row);
     });
+
+    // Carregar dados ao abrir a página
+    carregarDados();
   </script>
 </body>
 </html>
