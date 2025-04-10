@@ -2,216 +2,157 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Controle de Estoque</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
-    .entrada { color: #16a34a; font-weight: bold; }
-    .saida { color: #dc2626; font-weight: bold; }
+    body { font-family: Arial, sans-serif; background: #f3f4f6; padding: 2rem; }
+    h1 { color: #4f46e5; }
+    input, select, button {
+      padding: 0.5rem;
+      margin: 0.5rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    button { background: #4f46e5; color: white; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td {
+      border: 1px solid #ddd; padding: 0.75rem; text-align: center;
+    }
+    th { background: #e0e7ff; }
+    .excluir { color: red; cursor: pointer; }
   </style>
 </head>
-<body class="bg-gradient-to-r from-indigo-50 to-purple-100 min-h-screen p-6 font-sans text-gray-800">
-  <div class="max-w-6xl mx-auto p-8 bg-white shadow-2xl rounded-2xl">
-    <h1 class="text-4xl font-bold text-center text-indigo-700 mb-10">📦 Controle de Estoque</h1>
+<body>
 
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-      <input id="usuario" class="border p-3 rounded-xl col-span-1" type="text" placeholder="Usuário" />
-      <input id="produto" class="border p-3 rounded-xl col-span-1" type="text" placeholder="Produto" />
-      <input id="quantidade" class="border p-3 rounded-xl col-span-1" type="number" placeholder="Quantidade" />
-      <select id="tipo" class="border p-3 rounded-xl col-span-1">
-        <option value="entrada">Entrada</option>
-        <option value="saida">Saída</option>
-      </select>
-      <button onclick="registrarMovimentacao(true)" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
-    </div>
+  <h1>📦 Controle de Estoque</h1>
 
-    <div class="text-center text-xl font-semibold mb-8">Saldo Atual: <span id="saldoTotal" class="text-indigo-700">0</span></div>
-
-    <div class="mb-6">
-      <h2 class="text-2xl font-semibold text-blue-700 mb-3">🔍 Pesquisar Produto</h2>
-      <div class="flex gap-2">
-        <input id="pesquisaProduto" class="border p-3 rounded-xl w-full" type="text" placeholder="Buscar produto" />
-        <button onclick="pesquisarMovimentacoes()" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">Pesquisar</button>
-      </div>
-    </div>
-
-    <div class="mb-10">
-      <h2 class="text-2xl font-semibold text-purple-700 mb-3">📄 Histórico</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full table-auto text-sm text-center bg-white shadow rounded-xl">
-          <thead class="bg-indigo-100">
-            <tr>
-              <th class="p-3">ID</th>
-              <th class="p-3">Usuário</th>
-              <th class="p-3">Produto</th>
-              <th class="p-3">Tipo</th>
-              <th class="p-3">Qtd</th>
-              <th class="p-3">Data</th>
-              <th class="p-3">Saldo</th>
-              <th class="p-3">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="historicoBody" class="bg-white"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div>
-      <h2 class="text-2xl font-semibold text-yellow-600 mb-3">📦 Resumo do Estoque</h2>
-      <table class="w-full table-auto text-sm text-center bg-white shadow rounded-xl">
-        <thead class="bg-yellow-100">
-          <tr>
-            <th class="p-3">Produto</th>
-            <th class="p-3">Quantidade</th>
-          </tr>
-        </thead>
-        <tbody id="resumoEstoque" class="bg-white"></tbody>
-      </table>
-    </div>
+  <div>
+    <input id="usuario" placeholder="Usuário" />
+    <input id="produto" placeholder="Produto" />
+    <input id="quantidade" type="number" placeholder="Quantidade" />
+    <select id="tipo">
+      <option value="entrada">Entrada</option>
+      <option value="saida">Saída</option>
+    </select>
+    <button onclick="registrar()">Registrar</button>
   </div>
 
+  <p><strong>Saldo Atual:</strong> <span id="saldoAtual">0</span></p>
+
+  <h2>📜 Histórico</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Usuário</th>
+        <th>Produto</th>
+        <th>Tipo</th>
+        <th>Qtd</th>
+        <th>Data</th>
+        <th>Saldo</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody id="historico"></tbody>
+  </table>
+
   <script>
-    const apiBase = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
-    const apiToken = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
-    let historico = [];
-    let estoque = {};
-    let saldo = 0;
+    const API_URL = "https://app.nocodb.com/api/v2/tables/m9hu3563ew9nw4g/records";
+    const TOKEN = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
 
-    function carregarDados() {
-      fetch(apiBase + "?limit=100", {
-        headers: {
-          "accept": "application/json",
-          "xc-token": apiToken
-        }
-      })
-      .then(res => res.json())
-      .then(json => {
-        historico = json.list.map(row => ({
-          id: row.id,
-          usuario: row.Usuario,
-          produto: row.Produto,
-          tipo: row.Tipo,
-          quantidade: parseInt(row.Quantidade),
-          data: row.Data,
-          saldoApos: parseInt(row.SaldoApos)
-        }));
-        recalcularSaldos();
-        atualizarHistorico();
-        atualizarResumoEstoque();
-      })
-      .catch(err => alert("Erro ao carregar dados: " + err));
-    }
-
-    function registrarMovimentacao(salvarNaApi = false) {
-      const usuario = document.getElementById('usuario').value.trim();
-      const produto = document.getElementById('produto').value.trim();
-      const quantidade = parseInt(document.getElementById('quantidade').value);
-      const tipo = document.getElementById('tipo').value;
-      if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
-        alert("Preencha todos os campos corretamente.");
-        return;
-      }
-      const data = new Date().toLocaleString('pt-BR');
-      const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = {
-        Usuario: usuario,
-        Produto: produto,
-        Tipo: tipo,
-        Quantidade: quantidade,
-        Data: data,
-        SaldoApos: saldoProduto
-      };
-
-      if (salvarNaApi) {
-        fetch(apiBase, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "xc-token": apiToken
-          },
-          body: JSON.stringify({ fields: novo })
-        })
-        .then(() => {
-          carregarDados();
-          limparCampos();
-        })
-        .catch(() => alert("Erro ao registrar movimentação"));
-      }
-    }
-
-    function recalcularSaldos() {
-      estoque = {}; saldo = 0;
-      historico.forEach(item => {
-        if (!estoque[item.produto]) estoque[item.produto] = 0;
-        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        item.saldoApos = estoque[item.produto];
+    async function carregarHistorico() {
+      const res = await fetch(API_URL, {
+        headers: { "xc-token": TOKEN }
       });
-      document.getElementById('saldoTotal').textContent = saldo;
-    }
-
-    function atualizarHistorico(filtro = "") {
-      const tbody = document.getElementById('historicoBody');
+      const dados = await res.json();
+      const registros = dados.list || [];
+      const tbody = document.getElementById("historico");
       tbody.innerHTML = "";
-      historico.forEach((item, index) => {
-        if (!filtro || item.produto.toLowerCase().includes(filtro)) {
-          tbody.innerHTML += `
-            <tr>
-              <td class="p-3">${item.id}</td>
-              <td class="p-3">${item.usuario}</td>
-              <td class="p-3">${item.produto}</td>
-              <td class="p-3 ${item.tipo}">${item.tipo}</td>
-              <td class="p-3">${item.quantidade}</td>
-              <td class="p-3">${item.data}</td>
-              <td class="p-3">${item.saldoApos}</td>
-              <td class="p-3">
-                <button onclick="deletarRegistro('${item.id}', ${index})" class="text-red-500 hover:underline">Excluir</button>
-              </td>
-            </tr>`;
-        }
-      });
-    }
 
-    function atualizarResumoEstoque() {
-      const tbody = document.getElementById('resumoEstoque');
-      tbody.innerHTML = "";
-      for (let produto in estoque) {
+      let saldo = 0;
+      registros.forEach((r) => {
+        const qtd = Number(r.quantidade) || 0;
+        if (r.tipo === "entrada") saldo += qtd;
+        else if (r.tipo === "saida") saldo -= qtd;
+
         tbody.innerHTML += `
           <tr>
-            <td class="p-3">${produto}</td>
-            <td class="p-3">${estoque[produto]}</td>
-          </tr>`;
-      }
+            <td>${r.id}</td>
+            <td>${r.usuario}</td>
+            <td>${r.produto}</td>
+            <td>${r.tipo}</td>
+            <td>${r.quantidade}</td>
+            <td>${r.data}</td>
+            <td>${r.saldoApos}</td>
+            <td><span class="excluir" onclick="excluir(${r.id})">Excluir</span></td>
+          </tr>
+        `;
+      });
+
+      document.getElementById("saldoAtual").textContent = saldo;
     }
 
-    function pesquisarMovimentacoes() {
-      const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
-      atualizarHistorico(termo);
+    async function registrar() {
+      const usuario = document.getElementById("usuario").value;
+      const produto = document.getElementById("produto").value;
+      const quantidade = Number(document.getElementById("quantidade").value);
+      const tipo = document.getElementById("tipo").value;
+      const data = new Date().toLocaleString();
+
+      // Buscar histórico atual para calcular saldo
+      const res = await fetch(API_URL, {
+        headers: { "xc-token": TOKEN }
+      });
+      const dados = await res.json();
+      const historico = dados.list || [];
+
+      let saldo = 0;
+      historico.forEach((r) => {
+        const qtd = Number(r.quantidade) || 0;
+        if (r.tipo === "entrada") saldo += qtd;
+        else if (r.tipo === "saida") saldo -= qtd;
+      });
+
+      // Atualiza saldo com a nova operação
+      const novoSaldo = tipo === "entrada" ? saldo + quantidade : saldo - quantidade;
+
+      // Enviar novo registro
+      await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "xc-token": TOKEN
+        },
+        body: JSON.stringify({
+          usuario,
+          produto,
+          tipo,
+          quantidade,
+          data,
+          saldoApos: novoSaldo
+        })
+      });
+
+      // Limpar campos
+      document.getElementById("usuario").value = "";
+      document.getElementById("produto").value = "";
+      document.getElementById("quantidade").value = "";
+
+      carregarHistorico();
     }
 
-    function deletarRegistro(id, index) {
-      if (!confirm("Deseja excluir este registro?")) return;
-      fetch(`${apiBase}/${id}`, {
+    async function excluir(id) {
+      if (!confirm("Tem certeza que deseja excluir?")) return;
+      await fetch(`${API_URL}/${id}`, {
         method: "DELETE",
-        headers: { "xc-token": apiToken }
-      })
-      .then(() => {
-        historico.splice(index, 1);
-        recalcularSaldos();
-        atualizarHistorico();
-        atualizarResumoEstoque();
-      })
-      .catch(() => alert("Erro ao excluir"));
+        headers: { "xc-token": TOKEN }
+      });
+      carregarHistorico();
     }
 
-    function limparCampos() {
-      document.getElementById('usuario').value = "";
-      document.getElementById('produto').value = "";
-      document.getElementById('quantidade').value = "";
-      document.getElementById('tipo').value = "entrada";
-    }
-
-    window.onload = carregarDados;
+    // Carrega dados ao abrir
+    carregarHistorico();
   </script>
+
 </body>
 </html>
