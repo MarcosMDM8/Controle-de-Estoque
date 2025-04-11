@@ -1,69 +1,79 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Controle de Estoque</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .entrada { color: #16a34a; font-weight: bold; }
+    .saida { color: #dc2626; font-weight: bold; }
+  </style>
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-6xl mx-auto bg-white p-6 rounded-xl shadow-md">
-    <h1 class="text-3xl font-bold mb-6 text-center text-blue-700">Controle de Estoque</h1>
+<body class="bg-gradient-to-r from-indigo-50 to-purple-100 min-h-screen p-6 font-sans text-gray-800">
+  <div class="max-w-6xl mx-auto p-8 bg-white shadow-2xl rounded-2xl">
+    <h1 class="text-4xl font-bold text-center text-indigo-700 mb-10">📦 Controle de Estoque</h1>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <input id="usuario" class="p-3 border rounded" placeholder="Usuário">
-      <input id="produto" class="p-3 border rounded" placeholder="Produto">
-      <input id="quantidade" type="number" class="p-3 border rounded" placeholder="Quantidade">
-      <select id="tipo" class="p-3 border rounded">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <input id="usuario" class="border p-3 rounded-xl col-span-1" type="text" placeholder="Usuário" />
+      <input id="produto" class="border p-3 rounded-xl col-span-1" type="text" placeholder="Produto" />
+      <input id="quantidade" class="border p-3 rounded-xl col-span-1" type="number" placeholder="Quantidade" />
+      <select id="tipo" class="border p-3 rounded-xl col-span-1">
         <option value="entrada">Entrada</option>
         <option value="saida">Saída</option>
       </select>
+      <button onclick="registrarMovimentacao()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
     </div>
 
-    <div class="flex justify-between mb-6">
-      <button onclick="registrarMovimentacao()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Registrar</button>
-      <input id="pesquisaProduto" oninput="pesquisarMovimentacoes()" class="p-3 border rounded w-64" placeholder="Pesquisar Produto">
+    <div class="text-center text-xl font-semibold mb-8">Saldo Atual: <span id="saldoTotal" class="text-indigo-700">0</span></div>
+
+    <div class="mb-6">
+      <h2 class="text-2xl font-semibold text-blue-700 mb-3">🔍 Pesquisar Produto</h2>
+      <div class="flex gap-2">
+        <input id="pesquisaProduto" class="border p-3 rounded-xl w-full" type="text" placeholder="Buscar produto" />
+        <button onclick="pesquisarMovimentacoes()" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">Pesquisar</button>
+      </div>
     </div>
 
-    <h2 class="text-xl font-semibold mb-2">Histórico de Movimentações</h2>
-    <div class="overflow-x-auto mb-6">
-      <table class="w-full table-auto border text-sm text-left">
-        <thead class="bg-gray-200">
+    <div class="mb-10">
+      <h2 class="text-2xl font-semibold text-purple-700 mb-3">📄 Histórico</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full table-auto text-sm text-center bg-white shadow rounded-xl">
+          <thead class="bg-indigo-100">
+            <tr>
+              <th class="p-3">Usuário</th>
+              <th class="p-3">Produto</th>
+              <th class="p-3">Tipo</th>
+              <th class="p-3">Qtd</th>
+              <th class="p-3">Data</th>
+              <th class="p-3">Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="historicoBody" class="bg-white"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="text-2xl font-semibold text-yellow-600 mb-3">📦 Resumo do Estoque</h2>
+      <table class="w-full table-auto text-sm text-center bg-white shadow rounded-xl">
+        <thead class="bg-yellow-100">
           <tr>
-            <th class="p-3">ID</th>
-            <th class="p-3">Usuário</th>
             <th class="p-3">Produto</th>
-            <th class="p-3">Tipo</th>
             <th class="p-3">Quantidade</th>
-            <th class="p-3">Data</th>
-            <th class="p-3">Saldo Após</th>
-            <th class="p-3">Ações</th>
           </tr>
         </thead>
-        <tbody id="historicoBody"></tbody>
+        <tbody id="resumoEstoque" class="bg-white"></tbody>
       </table>
-    </div>
-
-    <h2 class="text-xl font-semibold mb-2">Resumo do Estoque</h2>
-    <div class="overflow-x-auto">
-      <table class="w-full table-auto border text-sm text-left">
-        <thead class="bg-gray-200">
-          <tr>
-            <th class="p-3">Produto</th>
-            <th class="p-3">Saldo Atual</th>
-          </tr>
-        </thead>
-        <tbody id="resumoEstoque"></tbody>
-      </table>
-    </div>
-
-    <div class="mt-6 text-right">
-      <strong>Saldo Total de Itens:</strong> <span id="saldoTotal">0</span>
     </div>
   </div>
 
   <script>
-    const API_URL = "https://api.sheetson.com/v2/sheets/Página1";
-    const API_TOKEN = "IXhHEyqFQ-EkdhQgKcCoJX9WVl_tbp3CSr8-iReAE-q3fPb-dpbbvgSkaaM";
+    const SHEET = "Página1";
+    const API_URL = `https://api.sheetson.com/v2/sheets/${encodeURIComponent(SHEET)}`;
+    const headers = {
+      "Authorization": "Bearer IXhHEyqFQ-EkdhQgKcCoJX9WVl_tbp3CSr8-iReAE-q3fPb-dpbbvgSkaaM"
+    };
 
     let historico = [];
     let estoque = {};
@@ -71,28 +81,22 @@
 
     async function carregarDados() {
       try {
-        const response = await fetch(API_URL, {
-          headers: {
-            Authorization: `Bearer ${API_TOKEN}`,
-            "Content-Type": "application/json"
-          }
-        });
-        const data = await response.json();
-        historico = data.results.map(doc => ({
-          id: doc.id,
-          usuario: doc.usuario,
-          produto: doc.produto,
-          tipo: doc.tipo,
-          quantidade: parseInt(doc.quantidade),
-          data: doc.data,
-          saldoApos: parseInt(doc.saldoApos)
+        const res = await fetch(API_URL, { headers });
+        const data = await res.json();
+        historico = data.results.map(item => ({
+          usuario: item.usuario,
+          produto: item.produto,
+          tipo: item.tipo,
+          quantidade: parseInt(item.quantidade),
+          data: item.data,
+          saldoApos: parseInt(item.saldoApos)
         }));
         recalcularSaldos();
         atualizarHistorico();
         atualizarResumoEstoque();
-      } catch (err) {
-        console.error("Erro ao carregar:", err);
+      } catch (e) {
         alert("Erro ao carregar dados");
+        console.error(e);
       }
     }
 
@@ -101,61 +105,33 @@
       const produto = document.getElementById("produto").value.trim();
       const quantidade = parseInt(document.getElementById("quantidade").value);
       const tipo = document.getElementById("tipo").value;
-
       if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
         alert("Preencha todos os campos corretamente.");
         return;
       }
-
-      const data = new Date().toLocaleString("pt-BR");
+      const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = {
-        usuario,
-        produto,
-        tipo,
-        quantidade,
-        data,
-        saldoApos: saldoProduto
-      };
+      const novo = { usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto };
 
       try {
         await fetch(API_URL, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${API_TOKEN}`,
+            ...headers,
             "Content-Type": "application/json"
           },
           body: JSON.stringify(novo)
         });
         carregarDados();
         limparCampos();
-      } catch (err) {
-        console.error("Erro ao registrar:", err);
+      } catch (e) {
         alert("Erro ao registrar movimentação");
-      }
-    }
-
-    async function deletarMovimentacao(id) {
-      if (!confirm("Tem certeza que deseja excluir esta movimentação?")) return;
-
-      try {
-        await fetch(`${API_URL}/${id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${API_TOKEN}`,
-            "Content-Type": "application/json"
-          }
-        });
-        carregarDados();
-      } catch (err) {
-        console.error("Erro ao excluir:", err);
-        alert("Erro ao excluir movimentação");
+        console.error(e);
       }
     }
 
     function recalcularSaldos() {
-      estoque = {};
-      saldo = 0;
+      estoque = {}; saldo = 0;
       historico.forEach(item => {
         if (!estoque[item.produto]) estoque[item.produto] = 0;
         estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
@@ -168,20 +144,16 @@
     function atualizarHistorico(filtro = "") {
       const tbody = document.getElementById("historicoBody");
       tbody.innerHTML = "";
-      historico.forEach(item => {
+      historico.forEach((item) => {
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
-              <td class="p-3">${item.id}</td>
               <td class="p-3">${item.usuario}</td>
               <td class="p-3">${item.produto}</td>
               <td class="p-3 ${item.tipo}">${item.tipo}</td>
               <td class="p-3">${item.quantidade}</td>
               <td class="p-3">${item.data}</td>
               <td class="p-3">${item.saldoApos}</td>
-              <td class="p-3">
-                <button onclick="deletarMovimentacao('${item.id}')" class="text-red-600 hover:underline">Excluir</button>
-              </td>
             </tr>`;
         }
       });
