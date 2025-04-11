@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Controle de Estoque</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0/browser/appwrite.min.js"></script>
   <style>
     .entrada { color: #16a34a; font-weight: bold; }
     .saida { color: #dc2626; font-weight: bold; }
@@ -72,75 +72,90 @@
   </div>
 
   <script>
-    const client = new Appwrite.Client()
+    const client = new window.Appwrite.Client();
+    client
       .setEndpoint('https://cloud.appwrite.io/v1')
-      .setProject('default');
+      .setProject('67f855200037658b5cff')
+      .setKey('standard_7e029b38dbb29173888a87e770b0a08ff6d0fce8d0a6fd93dc75572431f7d95120ea7ce67ad4d64e3405301209b99484da4daf3426344934a70f6bbe39c2ef74351e5f027d31f5147f221a6359083956615ec200e4773a214ae16815721e5df9f7c3cc9079966ec2dd60a8e8837ea612672a82c6c2633e523eab54264e1afd14');
 
-    const databases = new Appwrite.Databases(client);
+    const databases = new window.Appwrite.Databases(client);
     const databaseId = '67f855200037658b5cff';
     const collectionId = '67f8556e00195818cd15';
-    const apiKey = 'standard_429204f946d9ddf961bc74828e0228235d60150c1024ea711b919440a2706828a4e9e5299005c7037fd72326c523f069ac87e6aa6ce3c04b037770b374d55904ccfcc35d65f7c2b4735c128e57b899aab7b744270222236d16d1c129f4517366537baba975ff56ff4aae2a34ac31379c7b0dab04f38969d03352bfa2c7b4a67e';
-
-    client.setKey(apiKey);
 
     let historico = [];
     let estoque = {};
     let saldo = 0;
 
-    function carregarDados() {
-      databases.listDocuments(databaseId, collectionId)
-        .then(response => {
-          historico = response.documents.map(doc => ({
-            id: doc.$id,
-            usuario: doc.usuario,
-            produto: doc.produto,
-            tipo: doc.tipo,
-            quantidade: doc.quantidade,
-            data: doc.data,
-            saldoApos: doc.saldoApos
-          }));
-          recalcularSaldos();
-          atualizarHistorico();
-          atualizarResumoEstoque();
-        })
-        .catch(err => alert("Erro ao carregar dados"));
+    async function carregarDados() {
+      try {
+        const response = await databases.listDocuments(databaseId, collectionId);
+        historico = response.documents.map(doc => ({
+          id: doc.$id,
+          usuario: doc.usuario,
+          produto: doc.produto,
+          tipo: doc.tipo,
+          quantidade: doc.quantidade,
+          data: doc.data,
+          saldoApos: doc.saldoApos
+        }));
+        recalcularSaldos();
+        atualizarHistorico();
+        atualizarResumoEstoque();
+      } catch (err) {
+        console.error('Erro ao carregar:', err);
+        alert('Erro ao carregar dados');
+      }
     }
 
-    function registrarMovimentacao() {
+    async function registrarMovimentacao() {
       const usuario = document.getElementById('usuario').value.trim();
       const produto = document.getElementById('produto').value.trim();
       const quantidade = parseInt(document.getElementById('quantidade').value);
       const tipo = document.getElementById('tipo').value;
-
       if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
         alert("Preencha todos os campos corretamente.");
         return;
       }
-
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-
       const novo = { usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto };
 
-      databases.createDocument(databaseId, collectionId, Appwrite.ID.unique(), novo)
-        .then(() => {
-          carregarDados();
-          limparCampos();
-        })
-        .catch(() => alert("Erro ao registrar movimentação"));
+      try {
+        await databases.createDocument(databaseId, collectionId, 'unique()', novo);
+        carregarDados();
+        limparCampos();
+      } catch (err) {
+        console.error('Erro ao registrar:', err);
+        alert('Erro ao registrar movimentação');
+      }
     }
 
-    function deletarRegistro(id) {
-      if (!confirm("Deseja excluir este registro?")) return;
-      databases.deleteDocument(databaseId, collectionId, id)
-        .then(() => carregarDados())
-        .catch(() => alert("Erro ao excluir"));
+    async function deletarMovimentacao(id) {
+      if (!confirm("Tem certeza que deseja excluir esta movimentação?")) return;
+      try {
+        await databases.deleteDocument(databaseId, collectionId, id);
+        carregarDados();
+      } catch (err) {
+        console.error("Erro ao excluir:", err);
+        alert("Erro ao excluir movimentação");
+      }
+    }
+
+    function recalcularSaldos() {
+      estoque = {}; saldo = 0;
+      historico.forEach(item => {
+        if (!estoque[item.produto]) estoque[item.produto] = 0;
+        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        item.saldoApos = estoque[item.produto];
+      });
+      document.getElementById('saldoTotal').textContent = saldo;
     }
 
     function atualizarHistorico(filtro = "") {
       const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
-      historico.forEach(item => {
+      historico.forEach((item) => {
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
@@ -152,7 +167,7 @@
               <td class="p-3">${item.data}</td>
               <td class="p-3">${item.saldoApos}</td>
               <td class="p-3">
-                <button onclick="deletarRegistro('${item.id}')" class="text-red-500 hover:underline">Excluir</button>
+                <button onclick="deletarMovimentacao('${item.id}')" class="text-red-600 hover:underline">Excluir</button>
               </td>
             </tr>`;
         }
@@ -176,17 +191,6 @@
       atualizarHistorico(termo);
     }
 
-    function recalcularSaldos() {
-      estoque = {}; saldo = 0;
-      historico.forEach(item => {
-        if (!estoque[item.produto]) estoque[item.produto] = 0;
-        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        item.saldoApos = estoque[item.produto];
-      });
-      document.getElementById('saldoTotal').textContent = saldo;
-    }
-
     function limparCampos() {
       document.getElementById('usuario').value = "";
       document.getElementById('produto').value = "";
@@ -198,4 +202,3 @@
   </script>
 </body>
 </html>
- 
