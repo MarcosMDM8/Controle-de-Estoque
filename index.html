@@ -1,219 +1,65 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Controle de Estoque</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    .entrada { color: #16a34a; font-weight: bold; }
-    .saida { color: #dc2626; font-weight: bold; }
-  </style>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
 </head>
-<body class="bg-gradient-to-r from-indigo-50 to-purple-100 min-h-screen p-6 font-sans text-gray-800">
-  <div class="max-w-6xl mx-auto p-8 bg-white shadow-2xl rounded-2xl">
-    <h1 class="text-4xl font-bold text-center text-indigo-700 mb-10">📦 Controle de Estoque</h1>
+<body class="bg-gradient-to-br from-blue-100 to-purple-200 min-h-screen flex flex-col items-center p-4">
+  <h1 class="text-3xl font-bold text-purple-700 mb-4">📦 Controle de Estoque</h1>
 
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-      <input id="usuario" class="border p-3 rounded-xl col-span-1" type="text" placeholder="Usuário" />
-      <input id="produto" class="border p-3 rounded-xl col-span-1" type="text" placeholder="Produto" />
-      <input id="quantidade" class="border p-3 rounded-xl col-span-1" type="number" placeholder="Quantidade" />
-      <select id="tipo" class="border p-3 rounded-xl col-span-1">
-        <option value="entrada">Entrada</option>
-        <option value="saida">Saída</option>
-      </select>
-      <button onclick="registrarMovimentacao()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
-    </div>
-
-    <div class="text-center text-xl font-semibold mb-8">Saldo Atual: <span id="saldoTotal" class="text-indigo-700">0</span></div>
-
-    <div class="mb-6">
-      <h2 class="text-2xl font-semibold text-blue-700 mb-3">🔍 Pesquisar Produto</h2>
-      <div class="flex gap-2">
-        <input id="pesquisaProduto" class="border p-3 rounded-xl w-full" type="text" placeholder="Buscar produto" />
-        <button onclick="pesquisarMovimentacoes()" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">Pesquisar</button>
-      </div>
-    </div>
-
-    <div class="mb-10">
-      <h2 class="text-2xl font-semibold text-purple-700 mb-3">📄 Histórico</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full table-auto text-sm text-center bg-white shadow rounded-xl">
-          <thead class="bg-indigo-100">
-            <tr>
-              <th class="p-3">ID</th>
-              <th class="p-3">Usuário</th>
-              <th class="p-3">Produto</th>
-              <th class="p-3">Tipo</th>
-              <th class="p-3">Qtd</th>
-              <th class="p-3">Data</th>
-              <th class="p-3">Saldo</th>
-              <th class="p-3">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="historicoBody" class="bg-white"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div>
-      <h2 class="text-2xl font-semibold text-yellow-600 mb-3">📦 Resumo do Estoque</h2>
-      <table class="w-full table-auto text-sm text-center bg-white shadow rounded-xl">
-        <thead class="bg-yellow-100">
-          <tr>
-            <th class="p-3">Produto</th>
-            <th class="p-3">Quantidade</th>
-          </tr>
-        </thead>
-        <tbody id="resumoEstoque" class="bg-white"></tbody>
-      </table>
-    </div>
+  <div class="bg-white p-6 rounded-xl shadow-md w-full max-w-4xl">
+    <h2 class="text-xl font-semibold text-blue-700 mb-4">🔍 Pesquisar Produto</h2>
+    <input id="searchInput" type="text" placeholder="Buscar produto" class="w-full p-3 border rounded-lg mb-4"/>
+    <button onclick="searchProduct()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Pesquisar</button>
+    
+    <h3 class="mt-6 text-lg font-medium">Resultado:</h3>
+    <div id="results" class="mt-2 text-gray-800"></div>
   </div>
 
   <script>
-    const BASE_URL = 'https://api.sheetson.com/v2/sheets/Página1';
-    const API_KEY = 'Bearer IXhHEyqFQ-EkdhQgKcCoJX9WVl_tbp3CSr8-iReAE-q3fPb-dpbbvgSkaaM';
+    const SHEETSON_API_URL = 'https://api.sheetson.com/v2/sheets/Página1';
+    const SHEETSON_API_TOKEN = 'hNxLYyo5W0O2N4Iyu-O50jVPfmvCHapvYflhXCPz5G_UWQ3cXvyLmWBCl7xUEw';
 
-    let historico = [];
-    let estoque = {};
-    let saldo = 0;
-
-    async function carregarDados() {
+    async function fetchData() {
       try {
-        const res = await fetch(BASE_URL, {
-          headers: { 'Authorization': API_KEY }
-        });
-        const data = await res.json();
-        historico = data.results.map(row => ({
-          id: row.id,
-          usuario: row.usuario,
-          produto: row.produto,
-          tipo: row.tipo,
-          quantidade: parseInt(row.quantidade),
-          data: row.data,
-          saldoApos: row.saldoApos
-        }));
-        recalcularSaldos();
-        atualizarHistorico();
-        atualizarResumoEstoque();
-      } catch (err) {
-        console.error('Erro ao carregar:', err);
-        alert('Erro ao carregar dados');
-      }
-    }
-
-    async function registrarMovimentacao() {
-      const usuario = document.getElementById('usuario').value.trim();
-      const produto = document.getElementById('produto').value.trim();
-      const quantidade = parseInt(document.getElementById('quantidade').value);
-      const tipo = document.getElementById('tipo').value;
-      if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
-        alert("Preencha todos os campos corretamente.");
-        return;
-      }
-      const data = new Date().toLocaleString('pt-BR');
-      const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = {
-        id: String(Date.now()),
-        usuario,
-        produto,
-        tipo,
-        quantidade,
-        data,
-        saldoApos: saldoProduto
-      };
-
-      try {
-        await fetch(BASE_URL, {
-          method: 'POST',
+        const res = await fetch(SHEETSON_API_URL, {
           headers: {
-            'Authorization': API_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(novo)
-        });
-        carregarDados();
-        limparCampos();
-      } catch (err) {
-        console.error('Erro ao registrar:', err);
-        alert('Erro ao registrar movimentação');
-      }
-    }
-
-    async function deletarMovimentacao(id) {
-      if (!confirm("Tem certeza que deseja excluir esta movimentação?")) return;
-      try {
-        await fetch(`${BASE_URL}/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': API_KEY
+            'Authorization': `Bearer ${SHEETSON_API_TOKEN}`
           }
         });
-        carregarDados();
+        if (!res.ok) throw new Error("Erro ao buscar dados");
+        const data = await res.json();
+        return data.results;
       } catch (err) {
-        console.error("Erro ao excluir:", err);
-        alert("Erro ao excluir movimentação");
+        alert('Erro ao carregar dados: ' + err.message);
+        console.error(err);
+        return [];
       }
     }
 
-    function recalcularSaldos() {
-      estoque = {}; saldo = 0;
-      historico.forEach(item => {
-        if (!estoque[item.produto]) estoque[item.produto] = 0;
-        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        item.saldoApos = estoque[item.produto];
-      });
-      document.getElementById('saldoTotal').textContent = saldo;
-    }
+    async function searchProduct() {
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      const allData = await fetchData();
+      const filtered = allData.filter(item => item.produto.toLowerCase().includes(query));
 
-    function atualizarHistorico(filtro = "") {
-      const tbody = document.getElementById('historicoBody');
-      tbody.innerHTML = "";
-      historico.forEach((item) => {
-        if (!filtro || item.produto.toLowerCase().includes(filtro)) {
-          tbody.innerHTML += `
-            <tr>
-              <td class="p-3">${item.id}</td>
-              <td class="p-3">${item.usuario}</td>
-              <td class="p-3">${item.produto}</td>
-              <td class="p-3 ${item.tipo}">${item.tipo}</td>
-              <td class="p-3">${item.quantidade}</td>
-              <td class="p-3">${item.data}</td>
-              <td class="p-3">${item.saldoApos}</td>
-              <td class="p-3">
-                <button onclick="deletarMovimentacao('${item.id}')" class="text-red-600 hover:underline">Excluir</button>
-              </td>
-            </tr>`;
-        }
-      });
-    }
-
-    function atualizarResumoEstoque() {
-      const tbody = document.getElementById('resumoEstoque');
-      tbody.innerHTML = "";
-      for (let produto in estoque) {
-        tbody.innerHTML += `
-          <tr>
-            <td class="p-3">${produto}</td>
-            <td class="p-3">${estoque[produto]}</td>
-          </tr>`;
+      const resultsDiv = document.getElementById('results');
+      if (filtered.length === 0) {
+        resultsDiv.innerHTML = '<p>Nenhum produto encontrado.</p>';
+      } else {
+        resultsDiv.innerHTML = filtered.map(item => `
+          <div class="bg-gray-100 p-3 rounded-lg mb-2">
+            <p><strong>Usuário:</strong> ${item.usuario}</p>
+            <p><strong>Produto:</strong> ${item.produto}</p>
+            <p><strong>Tipo:</strong> ${item.tipo}</p>
+            <p><strong>Quantidade:</strong> ${item.quantidade}</p>
+            <p><strong>Data:</strong> ${item.data}</p>
+            <p><strong>Saldo Após:</strong> ${item.saldoApos}</p>
+          </div>
+        `).join('');
       }
     }
-
-    function pesquisarMovimentacoes() {
-      const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
-      atualizarHistorico(termo);
-    }
-
-    function limparCampos() {
-      document.getElementById('usuario').value = "";
-      document.getElementById('produto').value = "";
-      document.getElementById('quantidade').value = "";
-      document.getElementById('tipo').value = "entrada";
-    }
-
-    window.onload = carregarDados;
   </script>
 </body>
 </html>
