@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Controle de Estoque</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
   <style>
     .entrada { color: #16a34a; font-weight: bold; }
     .saida { color: #dc2626; font-weight: bold; }
@@ -22,7 +23,7 @@
         <option value="entrada">Entrada</option>
         <option value="saida">Saída</option>
       </select>
-      <button onclick="registrarMovimentacao(true)" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
+      <button onclick="registrarMovimentacao()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition">Registrar</button>
     </div>
 
     <div class="text-center text-xl font-semibold mb-8">Saldo Atual: <span id="saldoTotal" class="text-indigo-700">0</span></div>
@@ -71,95 +72,75 @@
   </div>
 
   <script>
-    const apiBase = "https://app.nocodb.com/api/v2/tables/mnbcbbwqe1ywksz/records";
-    const apiToken = "w3ak8WxoOsXR64HgykZw80kiKGbzY2sKogvOH8id";
+    const client = new Appwrite.Client()
+      .setEndpoint('https://cloud.appwrite.io/v1')
+      .setProject('default');
+
+    const databases = new Appwrite.Databases(client);
+    const databaseId = '67f855200037658b5cff';
+    const collectionId = '67f8556e00195818cd15';
+    const apiKey = 'standard_429204f946d9ddf961bc74828e0228235d60150c1024ea711b919440a2706828a4e9e5299005c7037fd72326c523f069ac87e6aa6ce3c04b037770b374d55904ccfcc35d65f7c2b4735c128e57b899aab7b744270222236d16d1c129f4517366537baba975ff56ff4aae2a34ac31379c7b0dab04f38969d03352bfa2c7b4a67e';
+
+    client.setKey(apiKey);
+
     let historico = [];
     let estoque = {};
     let saldo = 0;
-function carregarDados() {
-  fetch(apiBase + "?limit=100", {
-    headers: {
-      "accept": "application/json",
-      "xc-token": apiToken
-    }
-  })
-  .then(res => res.json())
-  .then(json => {
-    if (!json.list || !Array.isArray(json.list)) {
-      throw new Error("Resposta inválida da API");
+
+    function carregarDados() {
+      databases.listDocuments(databaseId, collectionId)
+        .then(response => {
+          historico = response.documents.map(doc => ({
+            id: doc.$id,
+            usuario: doc.usuario,
+            produto: doc.produto,
+            tipo: doc.tipo,
+            quantidade: doc.quantidade,
+            data: doc.data,
+            saldoApos: doc.saldoApos
+          }));
+          recalcularSaldos();
+          atualizarHistorico();
+          atualizarResumoEstoque();
+        })
+        .catch(err => alert("Erro ao carregar dados"));
     }
 
-    historico = json.list
-      .filter(row => row.fields) // Garante que 'fields' exista
-      .map(row => {
-        const f = row.fields;
-        return {
-          id: row.id || "sem-id",
-          usuario: f.usuario || "sem usuário",
-          produto: f.produto || "sem produto",
-          tipo: f.tipo || "indefinido",
-          quantidade: parseInt(f.quantidade) || 0,
-          data: f.data || "sem data",
-          saldoApos: parseInt(f.saldoApos) || 0
-        };
-      });
-
-    recalcularSaldos();
-    atualizarHistorico();
-    atualizarResumoEstoque();
-  })
-  .catch(err => {
-    console.error("Erro ao carregar dados:", err);
-    alert("Erro ao carregar dados: " + err.message);
-  });
-}
-    function registrarMovimentacao(salvarNaApi = false) {
+    function registrarMovimentacao() {
       const usuario = document.getElementById('usuario').value.trim();
       const produto = document.getElementById('produto').value.trim();
       const quantidade = parseInt(document.getElementById('quantidade').value);
       const tipo = document.getElementById('tipo').value;
+
       if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
         alert("Preencha todos os campos corretamente.");
         return;
       }
+
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = {
-        usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto
-      };
 
-      if (salvarNaApi) {
-        fetch(apiBase, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "xc-token": apiToken
-          },
-          body: JSON.stringify({ fields: novo })
-        })
+      const novo = { usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto };
+
+      databases.createDocument(databaseId, collectionId, Appwrite.ID.unique(), novo)
         .then(() => {
           carregarDados();
           limparCampos();
         })
         .catch(() => alert("Erro ao registrar movimentação"));
-      }
     }
 
-    function recalcularSaldos() {
-      estoque = {}; saldo = 0;
-      historico.forEach(item => {
-        if (!estoque[item.produto]) estoque[item.produto] = 0;
-        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
-        item.saldoApos = estoque[item.produto];
-      });
-      document.getElementById('saldoTotal').textContent = saldo;
+    function deletarRegistro(id) {
+      if (!confirm("Deseja excluir este registro?")) return;
+      databases.deleteDocument(databaseId, collectionId, id)
+        .then(() => carregarDados())
+        .catch(() => alert("Erro ao excluir"));
     }
 
     function atualizarHistorico(filtro = "") {
       const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
-      historico.forEach((item, index) => {
+      historico.forEach(item => {
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
@@ -171,7 +152,7 @@ function carregarDados() {
               <td class="p-3">${item.data}</td>
               <td class="p-3">${item.saldoApos}</td>
               <td class="p-3">
-                <button onclick="deletarRegistro('${item.id}', ${index})" class="text-red-500 hover:underline">Excluir</button>
+                <button onclick="deletarRegistro('${item.id}')" class="text-red-500 hover:underline">Excluir</button>
               </td>
             </tr>`;
         }
@@ -195,19 +176,15 @@ function carregarDados() {
       atualizarHistorico(termo);
     }
 
-    function deletarRegistro(id, index) {
-      if (!confirm("Deseja excluir este registro?")) return;
-      fetch(`${apiBase}/${id}`, {
-        method: "DELETE",
-        headers: { "xc-token": apiToken }
-      })
-      .then(() => {
-        historico.splice(index, 1);
-        recalcularSaldos();
-        atualizarHistorico();
-        atualizarResumoEstoque();
-      })
-      .catch(() => alert("Erro ao excluir"));
+    function recalcularSaldos() {
+      estoque = {}; saldo = 0;
+      historico.forEach(item => {
+        if (!estoque[item.produto]) estoque[item.produto] = 0;
+        estoque[item.produto] += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
+        item.saldoApos = estoque[item.produto];
+      });
+      document.getElementById('saldoTotal').textContent = saldo;
     }
 
     function limparCampos() {
@@ -221,3 +198,4 @@ function carregarDados() {
   </script>
 </body>
 </html>
+ 
