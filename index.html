@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Controle de Estoque</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
@@ -41,12 +41,14 @@
         <table class="min-w-full table-auto text-sm text-center bg-white shadow rounded-xl">
           <thead class="bg-indigo-100">
             <tr>
+              <th class="p-3">ID</th>
               <th class="p-3">Usuário</th>
               <th class="p-3">Produto</th>
               <th class="p-3">Tipo</th>
               <th class="p-3">Qtd</th>
               <th class="p-3">Data</th>
               <th class="p-3">Saldo</th>
+              <th class="p-3">Ação</th>
             </tr>
           </thead>
           <tbody id="historicoBody" class="bg-white"></tbody>
@@ -69,11 +71,8 @@
   </div>
 
   <script>
-    const SHEET = "Página1";
-    const API_URL = `https://api.sheetson.com/v2/sheets/${encodeURIComponent(SHEET)}`;
-    const headers = {
-      "Authorization": "Bearer IXhHEyqFQ-EkdhQgKcCoJX9WVl_tbp3CSr8-iReAE-q3fPb-dpbbvgSkaaM"
-    };
+    const BASE_URL = 'https://api.sheetson.com/v2/sheets/Página1';
+    const API_KEY = 'Bearer IXhHEyqFQ-EkdhQgKcCoJX9WVl_tbp3CSr8-iReAE-q3fPb-dpbbvgSkaaM';
 
     let historico = [];
     let estoque = {};
@@ -81,52 +80,79 @@
 
     async function carregarDados() {
       try {
-        const res = await fetch(API_URL, { headers });
+        const res = await fetch(BASE_URL, {
+          headers: { 'Authorization': API_KEY }
+        });
         const data = await res.json();
-        historico = data.results.map(item => ({
-          usuario: item.usuario,
-          produto: item.produto,
-          tipo: item.tipo,
-          quantidade: parseInt(item.quantidade),
-          data: item.data,
-          saldoApos: parseInt(item.saldoApos)
+        historico = data.results.map(row => ({
+          id: row.id,
+          usuario: row.usuario,
+          produto: row.produto,
+          tipo: row.tipo,
+          quantidade: parseInt(row.quantidade),
+          data: row.data,
+          saldoApos: row.saldoApos
         }));
         recalcularSaldos();
         atualizarHistorico();
         atualizarResumoEstoque();
-      } catch (e) {
-        alert("Erro ao carregar dados");
-        console.error(e);
+      } catch (err) {
+        console.error('Erro ao carregar:', err);
+        alert('Erro ao carregar dados');
       }
     }
 
     async function registrarMovimentacao() {
-      const usuario = document.getElementById("usuario").value.trim();
-      const produto = document.getElementById("produto").value.trim();
-      const quantidade = parseInt(document.getElementById("quantidade").value);
-      const tipo = document.getElementById("tipo").value;
+      const usuario = document.getElementById('usuario').value.trim();
+      const produto = document.getElementById('produto').value.trim();
+      const quantidade = parseInt(document.getElementById('quantidade').value);
+      const tipo = document.getElementById('tipo').value;
       if (!usuario || !produto || isNaN(quantidade) || quantidade <= 0) {
         alert("Preencha todos os campos corretamente.");
         return;
       }
       const data = new Date().toLocaleString('pt-BR');
       const saldoProduto = (estoque[produto] || 0) + (tipo === "entrada" ? quantidade : -quantidade);
-      const novo = { usuario, produto, tipo, quantidade, data, saldoApos: saldoProduto };
+      const novo = {
+        id: String(Date.now()),
+        usuario,
+        produto,
+        tipo,
+        quantidade,
+        data,
+        saldoApos: saldoProduto
+      };
 
       try {
-        await fetch(API_URL, {
-          method: "POST",
+        await fetch(BASE_URL, {
+          method: 'POST',
           headers: {
-            ...headers,
-            "Content-Type": "application/json"
+            'Authorization': API_KEY,
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(novo)
         });
         carregarDados();
         limparCampos();
-      } catch (e) {
-        alert("Erro ao registrar movimentação");
-        console.error(e);
+      } catch (err) {
+        console.error('Erro ao registrar:', err);
+        alert('Erro ao registrar movimentação');
+      }
+    }
+
+    async function deletarMovimentacao(id) {
+      if (!confirm("Tem certeza que deseja excluir esta movimentação?")) return;
+      try {
+        await fetch(`${BASE_URL}/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': API_KEY
+          }
+        });
+        carregarDados();
+      } catch (err) {
+        console.error("Erro ao excluir:", err);
+        alert("Erro ao excluir movimentação");
       }
     }
 
@@ -138,29 +164,33 @@
         saldo += item.tipo === "entrada" ? item.quantidade : -item.quantidade;
         item.saldoApos = estoque[item.produto];
       });
-      document.getElementById("saldoTotal").textContent = saldo;
+      document.getElementById('saldoTotal').textContent = saldo;
     }
 
     function atualizarHistorico(filtro = "") {
-      const tbody = document.getElementById("historicoBody");
+      const tbody = document.getElementById('historicoBody');
       tbody.innerHTML = "";
       historico.forEach((item) => {
         if (!filtro || item.produto.toLowerCase().includes(filtro)) {
           tbody.innerHTML += `
             <tr>
+              <td class="p-3">${item.id}</td>
               <td class="p-3">${item.usuario}</td>
               <td class="p-3">${item.produto}</td>
               <td class="p-3 ${item.tipo}">${item.tipo}</td>
               <td class="p-3">${item.quantidade}</td>
               <td class="p-3">${item.data}</td>
               <td class="p-3">${item.saldoApos}</td>
+              <td class="p-3">
+                <button onclick="deletarMovimentacao('${item.id}')" class="text-red-600 hover:underline">Excluir</button>
+              </td>
             </tr>`;
         }
       });
     }
 
     function atualizarResumoEstoque() {
-      const tbody = document.getElementById("resumoEstoque");
+      const tbody = document.getElementById('resumoEstoque');
       tbody.innerHTML = "";
       for (let produto in estoque) {
         tbody.innerHTML += `
@@ -172,15 +202,15 @@
     }
 
     function pesquisarMovimentacoes() {
-      const termo = document.getElementById("pesquisaProduto").value.trim().toLowerCase();
+      const termo = document.getElementById('pesquisaProduto').value.trim().toLowerCase();
       atualizarHistorico(termo);
     }
 
     function limparCampos() {
-      document.getElementById("usuario").value = "";
-      document.getElementById("produto").value = "";
-      document.getElementById("quantidade").value = "";
-      document.getElementById("tipo").value = "entrada";
+      document.getElementById('usuario').value = "";
+      document.getElementById('produto').value = "";
+      document.getElementById('quantidade').value = "";
+      document.getElementById('tipo').value = "entrada";
     }
 
     window.onload = carregarDados;
